@@ -1,0 +1,7439 @@
+import React, { useEffect, useState, useRef } from "react";
+import {
+  Routes,
+  Route,
+  Link,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+import "./App.css";
+
+/* =====================================================
+   DEMO DATA
+===================================================== */
+
+const complaints = [
+  {
+    id: "CC001",
+    type: "UPI Fraud",
+    location: "Andheri, Mumbai",
+    city: "Mumbai",
+    amount: "₹85,000",
+    date: "25 Aug 2026",
+    status: "Analyzed",
+    time: "18:45",
+    victimBank: "State Bank of India",
+    suspectMule: "AC-78945612 (Rajesh S.)",
+    predictionData: {
+      score: 87,
+      riskLevel: "HIGH",
+      location: "Andheri East & West Corridor, Mumbai",
+      coordinates: [19.1136, 72.8697],
+      time: "19:00 - 22:00",
+      nearby: "12 ATMs (SBI, HDFC, ICICI)",
+      velocity: "Rapid UPI Layering (5 Micro-Burst Transfers)",
+      confidence: "94.2%",
+      model: "CNN-LSTM Neural Net",
+      recommendedAction: "Dispatch Quick-Response mobile patrol along Andheri Link Rd. Notify SBI & HDFC Nodal desks to throttle dispenser velocity.",
+      atms: [
+        { id: "ATM-MUM-01", name: "SBI Main Link Rd Kiosk", dist: "350m", threat: "92%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-MUM-02", name: "HDFC Metro Station Dispenser", dist: "620m", threat: "88%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-MUM-03", name: "ICICI Western Express Hub", dist: "890m", threat: "79%", cctv: "Active", hardware: "Under Watch" },
+        { id: "ATM-MUM-08", name: "Axis Bank Chakala Branch", dist: "1.2km", threat: "65%", cctv: "Active", hardware: "Safe" },
+      ]
+    }
+  },
+  {
+    id: "CC002",
+    type: "Phishing & SIM Swap",
+    location: "Bandra, Mumbai",
+    city: "Mumbai",
+    amount: "₹42,500",
+    date: "25 Aug 2026",
+    status: "Pending",
+    time: "17:15",
+    victimBank: "HDFC Bank",
+    suspectMule: "AC-34567890 (Vikram K.)",
+    predictionData: {
+      score: 64,
+      riskLevel: "MEDIUM",
+      location: "Bandra West & BKC Complex, Mumbai",
+      coordinates: [19.0600, 72.8350],
+      time: "18:00 - 21:00",
+      nearby: "18 ATMs (HDFC, Kotak, Axis)",
+      velocity: "Consecutive Zero-Balance Drainage",
+      confidence: "88.6%",
+      model: "CNN-LSTM Neural Net",
+      recommendedAction: "Place real-time CCTV monitoring alert on BKC transit cash kiosks and verify IP subnet proxy.",
+      atms: [
+        { id: "ATM-MUM-09", name: "HDFC BKC Complex Terminal", dist: "410m", threat: "71%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-MUM-10", name: "Kotak Bandra Turner Rd", dist: "750m", threat: "62%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-MUM-11", name: "Axis Hill Road Kiosk", dist: "1.1km", threat: "54%", cctv: "Active", hardware: "Safe" },
+      ]
+    }
+  },
+  {
+    id: "CC003",
+    type: "ATM Fraud & Card Skimming",
+    location: "Dadar, Mumbai",
+    city: "Mumbai",
+    amount: "₹1,20,000",
+    date: "24 Aug 2026",
+    status: "Analyzed",
+    time: "20:30",
+    victimBank: "ICICI Bank",
+    suspectMule: "AC-90123456 (Deepak V.)",
+    predictionData: {
+      score: 78,
+      riskLevel: "HIGH",
+      location: "Dadar TT Circle & Station Hub, Mumbai",
+      coordinates: [19.0178, 72.8478],
+      time: "21:00 - 23:30",
+      nearby: "14 ATMs (SBI, Canara, BoI)",
+      velocity: "Cloned Debit Card Night Extraction",
+      confidence: "91.8%",
+      model: "CNN-LSTM Neural Net",
+      recommendedAction: "Initiate physical terminal inspection for hardware overlay skimmers at Dadar TT Circle kiosks.",
+      atms: [
+        { id: "ATM-MUM-06", name: "Canara Bank Dadar Station", dist: "280m", threat: "84%", cctv: "Active", hardware: "Check Skimmer" },
+        { id: "ATM-MUM-07", name: "SBI TT Circle Kiosk", dist: "520m", threat: "78%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-MUM-12", name: "Bank of India Gokhale Rd", dist: "890m", threat: "68%", cctv: "Active", hardware: "Safe" },
+      ]
+    }
+  },
+  {
+    id: "CC004",
+    type: "Online Banking & Corporate Phishing",
+    location: "South Mumbai",
+    city: "Mumbai",
+    amount: "₹2,10,000",
+    date: "24 Aug 2026",
+    status: "Analyzed",
+    time: "19:50",
+    victimBank: "Axis Bank",
+    suspectMule: "AC-56789012 (Sneha M.)",
+    predictionData: {
+      score: 91,
+      riskLevel: "CRITICAL",
+      location: "South Mumbai Financial District (Fort & Nariman)",
+      coordinates: [18.9322, 72.8264],
+      time: "20:00 - 23:00",
+      nearby: "32 ATMs (Axis, BoI, Standard Chartered)",
+      velocity: "High Value Instant RTGS Push",
+      confidence: "96.4%",
+      model: "CNN-LSTM Neural Net",
+      recommendedAction: "Immediate inter-bank debit hold notification via 1930 portal and dispatch armed vigilance unit.",
+      atms: [
+        { id: "ATM-MUM-04", name: "Axis Bank Fort Main Branch", dist: "200m", threat: "94%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-MUM-05", name: "Bank of India Nariman Point", dist: "450m", threat: "89%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-MUM-14", name: "SBI Horniman Circle", dist: "610m", threat: "85%", cctv: "Active", hardware: "Safe" },
+      ]
+    }
+  },
+  {
+    id: "CC005",
+    type: "UPI Micro-Transfer & Lottery Scam",
+    location: "Pune",
+    city: "Pune",
+    amount: "₹35,000",
+    date: "24 Aug 2026",
+    status: "Pending",
+    time: "16:20",
+    victimBank: "Union Bank",
+    suspectMule: "AC-67890123 (Amit P.)",
+    predictionData: {
+      score: 83,
+      riskLevel: "HIGH",
+      location: "Shivaji Nagar & FC Road Hub, Pune",
+      coordinates: [18.5314, 73.8446],
+      time: "18:00 - 21:00",
+      nearby: "18 ATMs (SBI, Bank of Maharashtra)",
+      velocity: "Rapid Micro-Deposits via UPI QR",
+      confidence: "89.2%",
+      model: "CNN-LSTM Neural Net",
+      recommendedAction: "Alert local police station beat officers and review CCTV timestamp logs for FC Road ATM cluster.",
+      atms: [
+        { id: "ATM-PUN-01", name: "SBI FC Road Kiosk", dist: "320m", threat: "86%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-PUN-03", name: "Bank of Maharashtra Deccan", dist: "680m", threat: "80%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-PUN-04", name: "HDFC JM Road", dist: "910m", threat: "72%", cctv: "Active", hardware: "Safe" },
+      ]
+    }
+  },
+  {
+    id: "CC006",
+    type: "Call Center & Tech Support Scam",
+    location: "Delhi",
+    city: "Delhi",
+    amount: "₹1,85,000",
+    date: "23 Aug 2026",
+    status: "Analyzed",
+    time: "18:10",
+    victimBank: "Punjab National Bank",
+    suspectMule: "AC-89012345 (Rohit T.)",
+    predictionData: {
+      score: 89,
+      riskLevel: "CRITICAL",
+      location: "Connaught Place Financial Circle, Delhi",
+      coordinates: [28.6315, 77.2167],
+      time: "19:00 - 22:00",
+      nearby: "28 ATMs (SBI, PNB, ICICI)",
+      velocity: "Call Center Layered Ring Cash-Out",
+      confidence: "93.7%",
+      model: "CNN-LSTM Neural Net",
+      recommendedAction: "Deploy quick-response mobile patrol around CP Inner Circle and alert bank security control rooms.",
+      atms: [
+        { id: "ATM-DEL-01", name: "SBI CP Inner Circle", dist: "180m", threat: "91%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-DEL-02", name: "PNB Regal Building", dist: "420m", threat: "86%", cctv: "Active", hardware: "Safe" },
+        { id: "ATM-DEL-03", name: "ICICI Barakhamba Road", dist: "710m", threat: "79%", cctv: "Active", hardware: "Safe" },
+      ]
+    }
+  }
+];
+
+const alerts = [
+  {
+    id: 1,
+    level: "HIGH",
+    location: "Andheri, Mumbai",
+    score: 87,
+    time: "19:00 - 22:00",
+    status: "Active",
+  },
+  {
+    id: 2,
+    level: "HIGH",
+    location: "South Mumbai",
+    score: 91,
+    time: "20:00 - 23:00",
+    status: "Active",
+  },
+  {
+    id: 3,
+    level: "MEDIUM",
+    location: "Bandra, Mumbai",
+    score: 64,
+    time: "18:00 - 21:00",
+    status: "Monitoring",
+  },
+];
+
+/* =====================================================
+   THEME + UI HELPERS
+===================================================== */
+
+function useTheme() {
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem("cybex-theme") || "dark";
+    } catch {
+      return "dark";
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try {
+      localStorage.setItem("cybex-theme", theme);
+    } catch {
+      // Ignore storage errors and keep the active theme.
+    }
+  }, [theme]);
+
+  return [theme, () => setTheme((current) => current === "dark" ? "light" : "dark")];
+}
+
+function ThemeToggle() {
+  const [theme, toggleTheme] = useTheme();
+
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={toggleTheme}
+      title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+      aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+    >
+      <span>{theme === "dark" ? "☀️" : "🌙"}</span>
+      <span>{theme === "dark" ? "Light" : "Dark"}</span>
+    </button>
+  );
+}
+
+/* =====================================================
+   ROLE-BASED LOGIN
+===================================================== */
+
+function Login() {
+  const navigate = useNavigate();
+
+  const [role, setRole] = useState("officer");
+  const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
+
+  const roles = [
+    {
+      id: "officer",
+      icon: "👮",
+      title: "Officer",
+      subtitle: "Law Enforcement",
+    },
+    {
+      id: "citizen",
+      icon: "👤",
+      title: "Citizen",
+      subtitle: "Public User",
+    },
+    {
+      id: "bank",
+      icon: "🏦",
+      title: "Bank",
+      subtitle: "Financial Institution",
+    },
+  ];
+
+  function handleLogin(e) {
+    e.preventDefault();
+
+    const credentials = {
+      officer: {
+        id: "officer",
+        password: "1234",
+      },
+      citizen: {
+        id: "citizen",
+        password: "1234",
+      },
+      bank: {
+        id: "bank",
+        password: "1234",
+      },
+    };
+
+    if (
+      userId === credentials[role].id &&
+      password === credentials[role].password
+    ) {
+      if (role === "officer") {
+        navigate("/dashboard");
+      } else if (role === "citizen") {
+        navigate("/citizen-dashboard");
+      } else {
+        navigate("/bank-dashboard");
+      }
+    } else {
+      alert(
+        `Invalid ${role} credentials.\n\nDemo:\nID: ${credentials[role].id}\nPassword: ${credentials[role].password}`
+      );
+    }
+  }
+
+  const selectedRole = roles.find((item) => item.id === role);
+
+  return (
+    <div className="login-page">
+      <div className="login-theme-control">
+        <ThemeToggle />
+      </div>
+
+      <div className="login-left">
+        <div className="login-brand">
+          <div className="big-shield">🛡️</div>
+
+          <h1>CybeX</h1>
+
+          <p>
+            Predictive Cybercrime Intelligence System
+          </p>
+        </div>
+
+        <div className="login-info">
+          <div>
+            <strong>AI Powered</strong>
+            <span>Predictive Analytics</span>
+          </div>
+
+          <div>
+            <strong>GIS Enabled</strong>
+            <span>Risk Hotspot Mapping</span>
+          </div>
+
+          <div>
+            <strong>Real-Time</strong>
+            <span>Actionable Intelligence</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="login-right">
+        <form className="login-card" onSubmit={handleLogin}>
+          <div className="login-card-header">
+            <h2>Welcome Back</h2>
+
+            <p>
+              Select your account type to continue
+            </p>
+          </div>
+
+          <div className="role-selector">
+            {roles.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className={
+                  role === item.id
+                    ? "role-card selected"
+                    : "role-card"
+                }
+                onClick={() => setRole(item.id)}
+              >
+                <span className="role-icon">
+                  {item.icon}
+                </span>
+
+                <strong>{item.title}</strong>
+
+                <small>{item.subtitle}</small>
+              </button>
+            ))}
+          </div>
+
+          <div className="selected-login-role">
+            {selectedRole.icon} Login as{" "}
+            <strong>{selectedRole.title}</strong>
+          </div>
+
+          <label>User ID</label>
+
+          <input
+            type="text"
+            placeholder={`Enter ${selectedRole.title} ID`}
+            value={userId}
+            onChange={(e) =>
+              setUserId(e.target.value)
+            }
+          />
+
+          <label>Password</label>
+
+          <input
+            type="password"
+            placeholder="Enter Password"
+            value={password}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
+          />
+
+          <div className="remember">
+            <label>
+              <input type="checkbox" />
+              Remember me
+            </label>
+
+            <button
+              type="button"
+              className="forgot-btn"
+              onClick={() =>
+                alert(
+                  "Password recovery will be connected with the backend later."
+                )
+              }
+            >
+              Forgot Password?
+            </button>
+          </div>
+
+          <button className="primary-btn login-btn">
+            🔐 Login
+          </button>
+
+
+          <div className="signup-link">
+            Don't have an account?{" "}
+            <Link to="/register">Sign Up</Link>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* =====================================================
+   REGISTER / SIGN UP
+===================================================== */
+
+function Register() {
+  const navigate = useNavigate();
+
+  const [role, setRole] = useState("officer");
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    userId: "",
+    password: "",
+    confirmPassword: "",
+    // Officer fields
+    badgeNumber: "",
+    designation: "",
+    policeStation: "",
+    // Citizen fields
+    aadhaar: "",
+    address: "",
+    city: "",
+    // Bank fields
+    bankName: "",
+    branchCode: "",
+    employeeId: "",
+  });
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const roles = [
+    {
+      id: "officer",
+      icon: "👮",
+      title: "Officer",
+      subtitle: "Law Enforcement",
+    },
+    {
+      id: "citizen",
+      icon: "👤",
+      title: "Citizen",
+      subtitle: "Public User",
+    },
+    {
+      id: "bank",
+      icon: "🏦",
+      title: "Bank",
+      subtitle: "Financial Institution",
+    },
+  ];
+
+  const selectedRole = roles.find((item) => item.id === role);
+
+  function handleChange(field, value) {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function handleRegister(e) {
+    e.preventDefault();
+
+    if (!formData.fullName || !formData.email || !formData.userId || !formData.password) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    if (formData.password.length < 4) {
+      alert("Password must be at least 4 characters.");
+      return;
+    }
+
+    // Show success animation then redirect to login
+    setShowSuccess(true);
+    setTimeout(() => {
+      navigate("/");
+    }, 2500);
+  }
+
+  if (showSuccess) {
+    return (
+      <div className="login-page">
+        <div className="login-theme-control">
+          <ThemeToggle />
+        </div>
+        <div className="login-left">
+          <div className="login-brand">
+            <div className="big-shield">🛡️</div>
+            <h1>CybeX</h1>
+            <p>Predictive Cybercrime Intelligence System</p>
+          </div>
+        </div>
+        <div className="login-right">
+          <div className="register-success-card">
+            <div className="success-icon">✅</div>
+            <h2>Registration Successful!</h2>
+            <p>Your <strong>{selectedRole.title}</strong> account has been created.</p>
+            <p className="success-sub">Redirecting to login...</p>
+            <div className="success-loader"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="login-page">
+      <div className="login-theme-control">
+        <ThemeToggle />
+      </div>
+
+      <div className="login-left">
+        <div className="login-brand">
+          <div className="big-shield">🛡️</div>
+          <h1>CybeX</h1>
+          <p>Predictive Cybercrime Intelligence System</p>
+        </div>
+
+        <div className="login-info">
+          <div>
+            <strong>Secure</strong>
+            <span>End-to-End Encrypted</span>
+          </div>
+          <div>
+            <strong>Verified</strong>
+            <span>Identity Authentication</span>
+          </div>
+          <div>
+            <strong>Protected</strong>
+            <span>Multi-Factor Security</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="login-right">
+        <form className="login-card register-card" onSubmit={handleRegister}>
+          <div className="login-card-header">
+            <h2>Create Account</h2>
+            <p>Register as an Officer, Citizen, or Bank Official</p>
+          </div>
+
+          {/* Role Selector */}
+          <div className="role-selector">
+            {roles.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className={
+                  role === item.id
+                    ? "role-card selected"
+                    : "role-card"
+                }
+                onClick={() => setRole(item.id)}
+              >
+                <span className="role-icon">{item.icon}</span>
+                <strong>{item.title}</strong>
+                <small>{item.subtitle}</small>
+              </button>
+            ))}
+          </div>
+
+          <div className="selected-login-role">
+            {selectedRole.icon} Register as{" "}
+            <strong>{selectedRole.title}</strong>
+          </div>
+
+          <div className="register-scroll-area">
+            {/* Common Fields */}
+            <div className="register-section">
+              <div className="register-section-title">📋 Personal Information</div>
+              <div className="register-grid">
+                <div className="register-field">
+                  <label>Full Name *</label>
+                  <input
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={formData.fullName}
+                    onChange={(e) => handleChange("fullName", e.target.value)}
+                  />
+                </div>
+                <div className="register-field">
+                  <label>Email Address *</label>
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
+                  />
+                </div>
+                <div className="register-field">
+                  <label>Phone Number</label>
+                  <input
+                    type="tel"
+                    placeholder="+91 XXXXX XXXXX"
+                    value={formData.phone}
+                    onChange={(e) => handleChange("phone", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Role-specific fields: Officer */}
+            {role === "officer" && (
+              <div className="register-section">
+                <div className="register-section-title">👮 Officer Details</div>
+                <div className="register-grid">
+                  <div className="register-field">
+                    <label>Badge / ID Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. OFF-2026-001"
+                      value={formData.badgeNumber}
+                      onChange={(e) => handleChange("badgeNumber", e.target.value)}
+                    />
+                  </div>
+                  <div className="register-field">
+                    <label>Designation</label>
+                    <select
+                      value={formData.designation}
+                      onChange={(e) => handleChange("designation", e.target.value)}
+                    >
+                      <option value="">Select Designation</option>
+                      <option value="inspector">Inspector</option>
+                      <option value="sub-inspector">Sub Inspector</option>
+                      <option value="cyber-cell">Cyber Cell Officer</option>
+                      <option value="sp">Superintendent of Police</option>
+                      <option value="dsp">Deputy SP</option>
+                    </select>
+                  </div>
+                  <div className="register-field">
+                    <label>Police Station / Unit</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Cyber Crime Cell, Mumbai"
+                      value={formData.policeStation}
+                      onChange={(e) => handleChange("policeStation", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Role-specific fields: Citizen */}
+            {role === "citizen" && (
+              <div className="register-section">
+                <div className="register-section-title">👤 Citizen Details</div>
+                <div className="register-grid">
+                  <div className="register-field">
+                    <label>Aadhaar Number</label>
+                    <input
+                      type="text"
+                      placeholder="XXXX XXXX XXXX"
+                      value={formData.aadhaar}
+                      onChange={(e) => handleChange("aadhaar", e.target.value)}
+                    />
+                  </div>
+                  <div className="register-field">
+                    <label>Address</label>
+                    <input
+                      type="text"
+                      placeholder="Enter your address"
+                      value={formData.address}
+                      onChange={(e) => handleChange("address", e.target.value)}
+                    />
+                  </div>
+                  <div className="register-field">
+                    <label>City / District</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Mumbai"
+                      value={formData.city}
+                      onChange={(e) => handleChange("city", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Role-specific fields: Bank */}
+            {role === "bank" && (
+              <div className="register-section">
+                <div className="register-section-title">🏦 Bank Details</div>
+                <div className="register-grid">
+                  <div className="register-field">
+                    <label>Bank Name</label>
+                    <select
+                      value={formData.bankName}
+                      onChange={(e) => handleChange("bankName", e.target.value)}
+                    >
+                      <option value="">Select Bank</option>
+                      <option value="sbi">State Bank of India</option>
+                      <option value="hdfc">HDFC Bank</option>
+                      <option value="icici">ICICI Bank</option>
+                      <option value="axis">Axis Bank</option>
+                      <option value="pnb">Punjab National Bank</option>
+                      <option value="kotak">Kotak Mahindra Bank</option>
+                      <option value="bob">Bank of Baroda</option>
+                      <option value="union">Union Bank of India</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="register-field">
+                    <label>Branch Code</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SBIN0001234"
+                      value={formData.branchCode}
+                      onChange={(e) => handleChange("branchCode", e.target.value)}
+                    />
+                  </div>
+                  <div className="register-field">
+                    <label>Employee ID</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. EMP-78945"
+                      value={formData.employeeId}
+                      onChange={(e) => handleChange("employeeId", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Credentials */}
+            <div className="register-section">
+              <div className="register-section-title">🔐 Login Credentials</div>
+              <div className="register-grid">
+                <div className="register-field">
+                  <label>User ID *</label>
+                  <input
+                    type="text"
+                    placeholder="Choose a User ID"
+                    value={formData.userId}
+                    onChange={(e) => handleChange("userId", e.target.value)}
+                  />
+                </div>
+                <div className="register-field">
+                  <label>Password *</label>
+                  <input
+                    type="password"
+                    placeholder="Create password"
+                    value={formData.password}
+                    onChange={(e) => handleChange("password", e.target.value)}
+                  />
+                </div>
+                <div className="register-field">
+                  <label>Confirm Password *</label>
+                  <input
+                    type="password"
+                    placeholder="Re-enter password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="register-terms">
+            <label>
+              <input type="checkbox" required />
+              I agree to the <button type="button" className="terms-link">Terms of Service</button> and{" "}
+              <button type="button" className="terms-link">Privacy Policy</button>
+            </label>
+          </div>
+
+          <button className="primary-btn login-btn register-btn">
+            📝 Register Account
+          </button>
+
+          <div className="signup-link">
+            Already have an account?{" "}
+            <Link to="/">Login</Link>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* =====================================================
+   OFFICER SIDEBAR
+===================================================== */
+
+function OfficerSidebar() {
+  const location = useLocation();
+
+  const menu = [
+    {
+      path: "/dashboard",
+      icon: "📊",
+      name: "Dashboard",
+    },
+    {
+      path: "/complaints",
+      icon: "📁",
+      name: "Complaints",
+    },
+    {
+      path: "/prediction",
+      icon: "🤖",
+      name: "Prediction",
+    },
+    {
+      path: "/heatmap",
+      icon: "🗺️",
+      name: "Risk Heatmap",
+    },
+    {
+      path: "/alerts",
+      icon: "🚨",
+      name: "Alerts",
+    },
+    {
+      path: "/reports",
+      icon: "📑",
+      name: "Reports",
+    },
+    {
+      path: "/settings",
+      icon: "⚙️",
+      name: "Settings",
+    },
+  ];
+
+  return (
+    <aside className="sidebar">
+      <div className="logo">
+        <div className="logo-icon">🛡️</div>
+
+        <div>
+          <h2>CybeX</h2>
+          <span>Officer Portal</span>
+        </div>
+      </div>
+
+      <nav>
+        {menu.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={
+              location.pathname === item.path
+                ? "menu-item active"
+                : "menu-item"
+            }
+          >
+            <span>{item.icon}</span>
+            {item.name}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="sidebar-bottom">
+        <div className="security-status">
+          <span className="status-dot"></span>
+          System Online
+        </div>
+
+        <Link to="/" className="logout">
+          🚪 Logout
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
+/* =====================================================
+   NOTIFICATION NOTICES DATA & GLOBAL HEADER
+===================================================== */
+
+const defaultNotifications = {
+  officer: [
+    {
+      id: "notif-off-1",
+      title: "Predicted Hotspot Threat Alert",
+      desc: "Andheri East withdrawal surge predicted between 19:00 - 22:00 (Risk: 87%).",
+      time: "2 mins ago",
+      type: "critical",
+      icon: "🚨",
+      link: "/heatmap",
+      read: false,
+    },
+    {
+      id: "notif-off-2",
+      title: "High Value Complaint Registered",
+      desc: "Complaint CC-2026-00125 (₹4,50,000 corporate phishing) pending review.",
+      time: "15 mins ago",
+      type: "warning",
+      icon: "📁",
+      link: "/complaints",
+      read: false,
+    },
+    {
+      id: "notif-off-3",
+      title: "ML Model Spatial Weights",
+      desc: "CNN-LSTM predictive accuracy optimized to 86.4% on latest dataset.",
+      time: "1 hour ago",
+      type: "info",
+      icon: "🤖",
+      link: "/prediction",
+      read: false,
+    },
+    {
+      id: "notif-off-4",
+      title: "Mule Account Chain Frozen",
+      desc: "3 linked accounts frozen in coordination with Bank Fraud Unit.",
+      time: "3 hours ago",
+      type: "info",
+      icon: "🔒",
+      link: "/alerts",
+      read: true,
+    },
+  ],
+  citizen: [
+    {
+      id: "notif-cit-1",
+      title: "Complaint Status Update",
+      desc: "Your complaint CC001 is now Under Investigation by Cyber Crime Unit.",
+      time: "5 mins ago",
+      type: "warning",
+      icon: "🔍",
+      link: "/track-complaint",
+      read: false,
+    },
+    {
+      id: "notif-cit-2",
+      title: "Urgent Phishing SMS Advisory",
+      desc: "Fake electricity bill APK messages detected across Maharashtra circle.",
+      time: "30 mins ago",
+      type: "critical",
+      icon: "🚨",
+      link: "/citizen-alerts",
+      read: false,
+    },
+    {
+      id: "notif-cit-3",
+      title: "Evidence Submitted Securely",
+      desc: "Transaction slip and chat screenshots attached to complaint CC001.",
+      time: "2 hours ago",
+      type: "info",
+      icon: "📎",
+      link: "/my-complaints",
+      read: false,
+    },
+    {
+      id: "notif-cit-4",
+      title: "Security Tip: Enable 2FA",
+      desc: "Protect your banking credentials by enabling Two-Factor Authentication.",
+      time: "1 day ago",
+      type: "info",
+      icon: "🛡️",
+      link: "/citizen-alerts",
+      read: true,
+    },
+  ],
+  bank: [
+    {
+      id: "notif-bnk-1",
+      title: "Rapid Mule Cash-Out Alert",
+      desc: "Account AC-78945612 detected with 5 rapid UPI transfers in 3 minutes.",
+      time: "Just now",
+      type: "critical",
+      icon: "🚨",
+      link: "/suspicious-transactions",
+      read: false,
+    },
+    {
+      id: "notif-bnk-2",
+      title: "High Risk ATM Node Triggered",
+      desc: "Andheri West ATM #04 flagged with 94% risk probability.",
+      time: "12 mins ago",
+      type: "warning",
+      icon: "🏧",
+      link: "/atm-risk",
+      read: false,
+    },
+    {
+      id: "notif-bnk-3",
+      title: "Emergency Fund Freeze Mandate",
+      desc: "Freeze mandate received for ₹2,40,000 on beneficiary account AC-45612389.",
+      time: "40 mins ago",
+      type: "critical",
+      icon: "🔒",
+      link: "/fund-blocking",
+      read: false,
+    },
+    {
+      id: "notif-bnk-4",
+      title: "Daily Risk Report Ready",
+      desc: "Automated fraud prevention analytics report for today has been generated.",
+      time: "3 hours ago",
+      type: "info",
+      icon: "📊",
+      link: "/bank-reports",
+      read: true,
+    },
+  ],
+};
+
+function Header({ title }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState("all");
+  const dropdownRef = useRef(null);
+
+  // Identify current portal role
+  const isCitizen =
+    location.pathname.startsWith("/citizen") ||
+    [
+      "/report-cybercrime",
+      "/upload-evidence",
+      "/my-complaints",
+      "/track-complaint",
+      "/citizen-alerts",
+      "/citizen-profile",
+    ].includes(location.pathname);
+
+  const isBank =
+    location.pathname.startsWith("/bank") ||
+    [
+      "/suspicious-transactions",
+      "/atm-risk",
+      "/fund-blocking",
+      "/bank-analytics",
+      "/bank-reports",
+      "/bank-settings",
+      "/bank-risk-alerts",
+    ].includes(location.pathname);
+
+  const roleKey = isCitizen ? "citizen" : isBank ? "bank" : "officer";
+
+  const [notificationList, setNotificationList] = useState(
+    () => defaultNotifications[roleKey] || defaultNotifications.officer
+  );
+
+  // Sync notifications when portal changes
+  useEffect(() => {
+    setNotificationList(
+      defaultNotifications[roleKey] || defaultNotifications.officer
+    );
+  }, [roleKey]);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const unreadCount = notificationList.filter((n) => !n.read).length;
+
+  const filteredNotifications = notificationList.filter((item) => {
+    if (activeFilter === "unread") return !item.read;
+    if (activeFilter === "critical") return item.type === "critical";
+    return true;
+  });
+
+  function markAllRead() {
+    setNotificationList((prev) => prev.map((n) => ({ ...n, read: true })));
+  }
+
+  function clearAll() {
+    setNotificationList([]);
+  }
+
+  function handleItemClick(item) {
+    setNotificationList((prev) =>
+      prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
+    );
+    setIsOpen(false);
+    if (item.link) {
+      navigate(item.link);
+    }
+  }
+
+  // Profile avatar and labels
+  const profileConfig = isCitizen
+    ? { avatar: "CU", name: "Citizen User", role: "Public Citizen" }
+    : isBank
+    ? { avatar: "BK", name: "Bank Officer", role: "Fraud Prevention Unit" }
+    : { avatar: "OF", name: "Officer", role: "Law Enforcement" };
+
+  return (
+    <header className="header">
+      <div>
+        <h1>{title}</h1>
+        <p>Cybercrime Predictive Intelligence System</p>
+      </div>
+
+      <div className="header-right">
+        <ThemeToggle />
+
+        {/* Notification Bell with Interactive Dropdown */}
+        <div className="notification-wrapper" ref={dropdownRef}>
+          <button
+            className={`notification-btn ${isOpen ? "active" : ""}`}
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            title="System Alerts & Notifications"
+            aria-label="View Notifications"
+          >
+            🔔
+            {unreadCount > 0 && <span>{unreadCount}</span>}
+          </button>
+
+          {isOpen && (
+            <div className="notification-dropdown">
+              <div className="notif-header">
+                <div className="notif-title">
+                  <strong>🔔 Notifications</strong>
+                  {unreadCount > 0 && (
+                    <span className="notif-count-badge">
+                      {unreadCount} New
+                    </span>
+                  )}
+                </div>
+                <div className="notif-actions">
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      className="notif-action-link"
+                      onClick={markAllRead}
+                    >
+                      ✓ Mark all read
+                    </button>
+                  )}
+                  {notificationList.length > 0 && (
+                    <button
+                      type="button"
+                      className="notif-action-link clear"
+                      onClick={clearAll}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="notif-tabs">
+                <button
+                  type="button"
+                  className={activeFilter === "all" ? "active" : ""}
+                  onClick={() => setActiveFilter("all")}
+                >
+                  All ({notificationList.length})
+                </button>
+                <button
+                  type="button"
+                  className={activeFilter === "unread" ? "active" : ""}
+                  onClick={() => setActiveFilter("unread")}
+                >
+                  Unread ({unreadCount})
+                </button>
+                <button
+                  type="button"
+                  className={activeFilter === "critical" ? "active" : ""}
+                  onClick={() => setActiveFilter("critical")}
+                >
+                  Critical (
+                  {
+                    notificationList.filter((n) => n.type === "critical")
+                      .length
+                  }
+                  )
+                </button>
+              </div>
+
+              {/* Notification List */}
+              <div className="notif-body">
+                {filteredNotifications.length === 0 ? (
+                  <div className="notif-empty">
+                    <span>🎉</span>
+                    <p>No notifications to display</p>
+                    <small>You're all caught up with latest alerts!</small>
+                  </div>
+                ) : (
+                  filteredNotifications.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`notif-item ${
+                        item.read ? "read" : "unread"
+                      } ${item.type}`}
+                      onClick={() => handleItemClick(item)}
+                    >
+                      <div className={`notif-icon-badge ${item.type}`}>
+                        {item.icon}
+                      </div>
+                      <div className="notif-content">
+                        <div className="notif-item-top">
+                          <strong>{item.title}</strong>
+                          <small>{item.time}</small>
+                        </div>
+                        <p>{item.desc}</p>
+                        {!item.read && <span className="unread-dot"></span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Footer Quick Link */}
+              <div className="notif-footer">
+                <Link
+                  to={
+                    isCitizen
+                      ? "/citizen-alerts"
+                      : isBank
+                      ? "/bank-risk-alerts"
+                      : "/alerts"
+                  }
+                  onClick={() => setIsOpen(false)}
+                >
+                  View All Threat Alerts →
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="user-profile">
+          <div className="avatar">{profileConfig.avatar}</div>
+
+          <div>
+            <strong>{profileConfig.name}</strong>
+            <small>{profileConfig.role}</small>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function Layout({ children, title }) {
+  return (
+    <div className="app-layout">
+      <OfficerSidebar />
+
+      <main className="main-content">
+        <Header title={title} />
+
+        <div className="page-content page-enter">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* =====================================================
+   OFFICER DASHBOARD
+===================================================== */
+
+function Dashboard() {
+  return (
+    <Layout title="Dashboard">
+      <div className="stats-grid">
+        <StatCard
+          title="Total Complaints"
+          value="8,245"
+          change="+12.5%"
+          icon="📁"
+        />
+
+        <StatCard
+          title="Predicted Hotspots"
+          value="342"
+          change="+8.2%"
+          icon="📍"
+        />
+
+        <StatCard
+          title="Active Alerts"
+          value="87"
+          change="+4.7%"
+          icon="🚨"
+        />
+
+        <StatCard
+          title="Model Accuracy"
+          value="86%"
+          change="Demo"
+          icon="🎯"
+        />
+      </div>
+
+      <div className="dashboard-grid">
+        <div className="card large-card">
+          <div className="card-header">
+            <div>
+              <h3>Cybercrime Risk Overview</h3>
+              <p>Predicted risk distribution</p>
+            </div>
+
+            <select>
+              <option>Today</option>
+              <option>Last 7 Days</option>
+              <option>Last 30 Days</option>
+            </select>
+          </div>
+
+          <RiskBar
+            name="Very High Risk"
+            value={22}
+            color="danger"
+          />
+
+          <RiskBar
+            name="High Risk"
+            value={38}
+            color="warning"
+          />
+
+          <RiskBar
+            name="Medium Risk"
+            value={27}
+            color="medium"
+          />
+
+          <RiskBar
+            name="Low Risk"
+            value={13}
+            color="safe"
+          />
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h3>Recent Alerts</h3>
+              <p>Latest risk notifications</p>
+            </div>
+          </div>
+
+          {alerts.map((alert) => (
+            <div className="mini-alert" key={alert.id}>
+              <div className="alert-icon">
+                🚨
+              </div>
+
+              <div>
+                <strong>{alert.location}</strong>
+
+                <span>
+                  Risk Score: {alert.score}%
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h3>Recent Cybercrime Complaints</h3>
+            <p>Latest complaints processed</p>
+          </div>
+
+          <Link
+            to="/complaints"
+            className="text-link"
+          >
+            View All →
+          </Link>
+        </div>
+
+        <ComplaintTable data={complaints} />
+      </div>
+    </Layout>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  change,
+  icon,
+}) {
+  return (
+    <div className="stat-card">
+      <div className="stat-top">
+        <div className="stat-icon">
+          {icon}
+        </div>
+
+        <span className="positive">
+          {change}
+        </span>
+      </div>
+
+      <h2>{value}</h2>
+
+      <p>{title}</p>
+    </div>
+  );
+}
+
+function RiskBar({
+  name,
+  value,
+  color,
+}) {
+  return (
+    <div className="risk-bar">
+      <div className="risk-bar-label">
+        <span>{name}</span>
+        <strong>{value}%</strong>
+      </div>
+
+      <div className="bar-background">
+        <div
+          className={`bar-fill ${color}`}
+          style={{ width: `${value}%` }}
+        ></div>
+      </div>
+    </div>
+  );
+}
+
+/* =====================================================
+   COMPLAINTS
+===================================================== */
+
+function Complaints() {
+  const [search, setSearch] = useState("");
+
+  const filtered = complaints.filter(
+    (item) =>
+      item.id
+        .toLowerCase()
+        .includes(search.toLowerCase()) ||
+      item.type
+        .toLowerCase()
+        .includes(search.toLowerCase()) ||
+      item.location
+        .toLowerCase()
+        .includes(search.toLowerCase())
+  );
+
+  return (
+    <Layout title="Complaint Analysis">
+      <div className="page-toolbar">
+        <div>
+          <h2>Cybercrime Complaints</h2>
+
+          <p>
+            Analyze complaints and identify patterns
+          </p>
+        </div>
+
+        <button className="primary-btn">
+          + New Complaint
+        </button>
+      </div>
+
+      <div className="filter-card">
+        <input
+          placeholder="🔍 Search complaint..."
+          value={search}
+          onChange={(e) =>
+            setSearch(e.target.value)
+          }
+        />
+
+        <select>
+          <option>All Crime Types</option>
+          <option>UPI Fraud</option>
+          <option>Phishing</option>
+          <option>ATM Fraud</option>
+        </select>
+
+        <select>
+          <option>All Locations</option>
+          <option>Mumbai</option>
+          <option>Delhi</option>
+          <option>Pune</option>
+        </select>
+
+        <select>
+          <option>All Status</option>
+          <option>Analyzed</option>
+          <option>Pending</option>
+        </select>
+      </div>
+
+      <div className="card">
+        <ComplaintTable data={filtered} />
+      </div>
+    </Layout>
+  );
+}
+
+function ComplaintTable({ data }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Complaint ID</th>
+            <th>Crime Type</th>
+            <th>Location</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {data.map((item) => (
+            <tr key={item.id}>
+              <td>
+                <strong>{item.id}</strong>
+              </td>
+
+              <td>{item.type}</td>
+
+              <td>📍 {item.location}</td>
+
+              <td>{item.amount}</td>
+
+              <td>{item.date}</td>
+
+              <td>
+                <span
+                  className={
+                    item.status === "Analyzed"
+                      ? "badge success"
+                      : "badge pending"
+                  }
+                >
+                  {item.status}
+                </span>
+              </td>
+
+              <td>
+                <button
+                  className="small-btn"
+                  onClick={() =>
+                    navigate("/prediction")
+                  }
+                >
+                  Analyze
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* =====================================================
+   PREDICTION
+===================================================== */
+
+/* =====================================================
+   OFFICER WITHDRAWAL PREDICTION ENGINE
+===================================================== */
+
+function Prediction() {
+  const navigate = useNavigate();
+
+  const [mode, setMode] = useState("complaint"); // "complaint" | "sandbox"
+  const [selectedComplaintId, setSelectedComplaintId] = useState("CC001");
+  const [selectedModel, setSelectedModel] = useState("CNN-LSTM");
+  const [spatialWeight, setSpatialWeight] = useState(0.85);
+  const [temporalWeight, setTemporalWeight] = useState(0.75);
+
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState(0);
+
+  // Selected complaint object
+  const currentComplaint =
+    complaints.find((c) => c.id === selectedComplaintId) || complaints[0];
+
+  // Sandbox state
+  const [sandboxForm, setSandboxForm] = useState({
+    category: "Financial Cyber Fraud (UPI Layering)",
+    amount: "₹1,50,000",
+    city: "Mumbai",
+    location: "Western Express Corridor, Andheri",
+    time: "19:15",
+    velocity: "Rapid 5-Burst Micro-Transfers",
+    victimBank: "State Bank of India",
+  });
+
+  // Current active prediction
+  const [prediction, setPrediction] = useState(() => currentComplaint.predictionData);
+
+  // Dispatched units state
+  const [dispatchedAtms, setDispatchedAtms] = useState({});
+  const [toastMessage, setToastMessage] = useState(null);
+
+  function showToast(msg) {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4500);
+  }
+
+  // When complaint changes in complaint mode, automatically update prediction
+  function handleComplaintChange(id) {
+    setSelectedComplaintId(id);
+    const found = complaints.find((c) => c.id === id);
+    if (found && found.predictionData) {
+      setPrediction(found.predictionData);
+    }
+  }
+
+  // Run AI Spatio-Temporal Inference Simulation
+  function handleRunInference() {
+    setIsAnalyzing(true);
+    setAnalysisStep(1);
+
+    setTimeout(() => setAnalysisStep(2), 250);
+    setTimeout(() => setAnalysisStep(3), 500);
+    setTimeout(() => {
+      setAnalysisStep(4);
+
+      if (mode === "complaint") {
+        // Compute dynamically based on model weights
+        const base = currentComplaint.predictionData;
+        const multiplier =
+          selectedModel === "CNN-LSTM"
+            ? 1.0
+            : selectedModel === "GNN"
+            ? 1.05
+            : 0.95;
+        const adjustedScore = Math.min(
+          98,
+          Math.max(45, Math.round(base.score * multiplier * (spatialWeight / 0.85)))
+        );
+
+        setPrediction({
+          ...base,
+          score: adjustedScore,
+          model:
+            selectedModel === "CNN-LSTM"
+              ? "Hybrid CNN-LSTM Neural Net (v4.2)"
+              : selectedModel === "GNN"
+              ? "Spatial Graph Neural Network (GNN-Mule)"
+              : "Random Forest + DBSCAN Spatial Cluster",
+        });
+      } else {
+        // Sandbox prediction generated from custom parameters
+        const amtNum = parseInt(sandboxForm.amount.replace(/[^0-9]/g, "")) || 100000;
+        const calculatedScore = Math.min(
+          96,
+          Math.max(55, Math.round(65 + (amtNum > 100000 ? 20 : 10) * spatialWeight))
+        );
+
+        const customAtms = [
+          {
+            id: `ATM-${sandboxForm.city.slice(0, 3).toUpperCase()}-01`,
+            name: `${sandboxForm.victimBank} Central Kiosk`,
+            dist: "290m",
+            threat: `${Math.min(96, calculatedScore + 4)}%`,
+            cctv: "Active (98% Uptime)",
+            hardware: "Safe",
+          },
+          {
+            id: `ATM-${sandboxForm.city.slice(0, 3).toUpperCase()}-02`,
+            name: "HDFC Metro Station Terminal",
+            dist: "580m",
+            threat: `${calculatedScore}%`,
+            cctv: "Active",
+            hardware: "Safe",
+          },
+          {
+            id: `ATM-${sandboxForm.city.slice(0, 3).toUpperCase()}-03`,
+            name: "Axis Commercial Complex Hub",
+            dist: "850m",
+            threat: `${Math.max(40, calculatedScore - 12)}%`,
+            cctv: "Active",
+            hardware: "Under Watch",
+          },
+        ];
+
+        setPrediction({
+          score: calculatedScore,
+          riskLevel: calculatedScore >= 85 ? "CRITICAL" : calculatedScore >= 70 ? "HIGH" : "MEDIUM",
+          location: `${sandboxForm.location}, ${sandboxForm.city}`,
+          coordinates:
+            sandboxForm.city === "Mumbai"
+              ? [19.1136, 72.8697]
+              : sandboxForm.city === "Delhi"
+              ? [28.6315, 77.2167]
+              : sandboxForm.city === "Pune"
+              ? [18.5314, 73.8446]
+              : [12.9716, 77.5946],
+          time: `${sandboxForm.time} - ${parseInt(sandboxForm.time.split(":")[0]) + 3}:00`,
+          nearby: `${customAtms.length * 4} High-Density ATMs`,
+          velocity: sandboxForm.velocity,
+          confidence: `${(88 + Math.random() * 8).toFixed(1)}%`,
+          model:
+            selectedModel === "CNN-LSTM"
+              ? "Hybrid CNN-LSTM Neural Net (v4.2)"
+              : selectedModel === "GNN"
+              ? "Spatial Graph Neural Network (GNN-Mule)"
+              : "Random Forest + DBSCAN Spatial Cluster",
+          recommendedAction: `Deploy priority sector patrol around ${sandboxForm.location}. Instruct ${sandboxForm.victimBank} fraud response team to monitor instant cash withdrawals.`,
+          atms: customAtms,
+        });
+      }
+
+      setIsAnalyzing(false);
+      showToast("✓ Spatio-temporal predictive inference complete!");
+    }, 750);
+  }
+
+  function handleDispatchPatrol(atm) {
+    setDispatchedAtms((prev) => ({ ...prev, [atm.id]: true }));
+    showToast(
+      `🚨 Quick-Response Mobile Patrol Unit dispatched to ${atm.name} (${atm.dist} away). ETA: 5-8 mins.`
+    );
+  }
+
+  function handleDispatchSectorPatrol() {
+    showToast(
+      `🚨 Sector Quick-Response Unit alerted for ${prediction.location}. Live tracking geofence active.`
+    );
+  }
+
+  function handleFreezeNotice() {
+    alert(
+      `[EMERGENCY 102 CrPC MANDATE ISSUED]\n\nNotice transmitted to Nodal Banking Desks for immediate debit hold on suspect beneficiary accounts linked to ${prediction.location}.\nSupervising Officer: LEA-10245`
+    );
+    showToast("🔒 Urgent Inter-Bank Freeze Order broadcasted to Bank Nodal Officers.");
+  }
+
+  function handleExportDossier() {
+    alert(
+      `[TACTICAL INTELLIGENCE DOSSIER READY]\n\nTarget Location: ${prediction.location}\nRisk Score: ${prediction.score}%\nExtraction Window: ${prediction.time}\nFormat: Encrypted Law Enforcement PDF Dossier\nClassification: RESTRICTED - LEA PATROL USE`
+    );
+    showToast("📥 Tactical Intelligence Dossier exported to encrypted PDF.");
+  }
+
+  return (
+    <Layout title="Predictive Withdrawal Intelligence">
+      <div className="page-toolbar">
+        <div>
+          <h2>AI Spatio-Temporal Prediction Engine</h2>
+          <p>
+            Forecast ATM cash-out locations, high-risk withdrawal windows, and tactical patrol dispatch routes
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => navigate("/heatmap")}
+          >
+            🗺️ Live GIS Radar Map
+          </button>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={handleExportDossier}
+          >
+            📑 Export Prediction Dossier
+          </button>
+        </div>
+      </div>
+
+      {toastMessage && (
+        <div
+          className="success-message"
+          style={{
+            marginBottom: "18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span>{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "inherit",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <div className="prediction-grid" style={{ gridTemplateColumns: "1.1fr 1.35fr", gap: "20px" }}>
+        {/* Left Column: Model Parameters & Incident Selector */}
+        <div className="card">
+          {/* Mode Switcher Tabs */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "8px",
+              padding: "4px",
+              background: "rgba(4, 12, 24, 0.6)",
+              borderRadius: "12px",
+              border: "1px solid var(--line)",
+              marginBottom: "18px",
+            }}
+          >
+            <button
+              type="button"
+              className={mode === "complaint" ? "primary-btn" : "secondary-btn"}
+              style={{ padding: "9px 12px", fontSize: "12.5px" }}
+              onClick={() => setMode("complaint")}
+            >
+              📋 Registered Complaints
+            </button>
+            <button
+              type="button"
+              className={mode === "sandbox" ? "primary-btn" : "secondary-btn"}
+              style={{ padding: "9px 12px", fontSize: "12.5px" }}
+              onClick={() => setMode("sandbox")}
+            >
+              ⚡ Custom Simulation Sandbox
+            </button>
+          </div>
+
+          {mode === "complaint" ? (
+            <>
+              <label>Select Active Cybercrime Complaint</label>
+              <select
+                value={selectedComplaintId}
+                onChange={(e) => handleComplaintChange(e.target.value)}
+                style={{ width: "100%", padding: "12px 14px", fontSize: "14px", borderRadius: "10px" }}
+              >
+                {complaints.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.id} — {item.type} ({item.amount}) • {item.location}
+                  </option>
+                ))}
+              </select>
+
+              <div className="input-details" style={{ marginTop: "14px" }}>
+                <div>
+                  <span>Crime Category</span>
+                  <strong>{currentComplaint.type}</strong>
+                </div>
+
+                <div>
+                  <span>Defrauded Amount</span>
+                  <strong style={{ color: "var(--cyan)" }}>{currentComplaint.amount}</strong>
+                </div>
+
+                <div>
+                  <span>Incident Origin</span>
+                  <strong>📍 {currentComplaint.location}</strong>
+                </div>
+
+                <div>
+                  <span>Incident Timestamp</span>
+                  <strong>🕐 {currentComplaint.time}</strong>
+                </div>
+
+                <div>
+                  <span>Victim Bank Entity</span>
+                  <strong>{currentComplaint.victimBank}</strong>
+                </div>
+
+                <div>
+                  <span>Suspect Mule Account</span>
+                  <strong style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>
+                    {currentComplaint.suspectMule}
+                  </strong>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="form-two-column">
+                <div>
+                  <label>Crime Category</label>
+                  <select
+                    value={sandboxForm.category}
+                    onChange={(e) =>
+                      setSandboxForm((prev) => ({ ...prev, category: e.target.value }))
+                    }
+                  >
+                    <option value="Financial Cyber Fraud (UPI Layering)">
+                      UPI Rapid Layering
+                    </option>
+                    <option value="ATM Card Skimming & Cloning">
+                      ATM Card Skimming &amp; Cloning
+                    </option>
+                    <option value="Phishing & SIM Swap Fraud">
+                      Phishing &amp; SIM Swap
+                    </option>
+                    <option value="Corporate Investment Scam">
+                      Corporate Investment Scam
+                    </option>
+                    <option value="Call Center Scam Syndicate">
+                      Call Center Scam Syndicate
+                    </option>
+                  </select>
+                </div>
+
+                <div>
+                  <label>Transaction Amount (₹)</label>
+                  <input
+                    type="text"
+                    value={sandboxForm.amount}
+                    onChange={(e) =>
+                      setSandboxForm((prev) => ({ ...prev, amount: e.target.value }))
+                    }
+                    placeholder="e.g. ₹1,50,000"
+                  />
+                </div>
+              </div>
+
+              <div className="form-two-column">
+                <div>
+                  <label>City Hub</label>
+                  <select
+                    value={sandboxForm.city}
+                    onChange={(e) =>
+                      setSandboxForm((prev) => ({ ...prev, city: e.target.value }))
+                    }
+                  >
+                    <option value="Mumbai">Mumbai</option>
+                    <option value="Delhi">Delhi</option>
+                    <option value="Pune">Pune</option>
+                    <option value="Bengaluru">Bengaluru</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label>Incident Time</label>
+                  <input
+                    type="time"
+                    value={sandboxForm.time}
+                    onChange={(e) =>
+                      setSandboxForm((prev) => ({ ...prev, time: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <label>Corridor / Origin Landmark</label>
+              <input
+                type="text"
+                value={sandboxForm.location}
+                onChange={(e) =>
+                  setSandboxForm((prev) => ({ ...prev, location: e.target.value }))
+                }
+                placeholder="e.g. Western Express Corridor, Andheri"
+              />
+            </>
+          )}
+
+          {/* AI Model Architecture & Hyperparameter Tuning */}
+          <div
+            style={{
+              marginTop: "18px",
+              padding: "15px",
+              borderRadius: "12px",
+              background: "rgba(57, 215, 255, 0.03)",
+              border: "1px solid rgba(57, 215, 255, 0.12)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+              <strong style={{ fontSize: "12.5px", color: "var(--cyan)", fontFamily: "'JetBrains Mono', monospace", textTransform: "uppercase" }}>
+                🤖 Neural Network Model
+              </strong>
+              <span className="badge success" style={{ fontSize: "11px" }}>
+                86.4% Benchmark Acc
+              </span>
+            </div>
+
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              style={{ width: "100%", padding: "10px 12px", fontSize: "13px", borderRadius: "8px", marginBottom: "12px" }}
+            >
+              <option value="CNN-LSTM">
+                Hybrid CNN-LSTM (Spatial-Temporal Sequence) - Recommended
+              </option>
+              <option value="GNN">
+                Spatial Graph Neural Network (GNN Mule Velocity)
+              </option>
+              <option value="RF-DBSCAN">
+                Random Forest + DBSCAN Spatial Density Clustering
+              </option>
+            </select>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "12px" }}>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#8da6be", marginBottom: "4px" }}>
+                  <span>Spatial Proximity</span>
+                  <strong>{spatialWeight}</strong>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="1.0"
+                  step="0.05"
+                  value={spatialWeight}
+                  onChange={(e) => setSpatialWeight(parseFloat(e.target.value))}
+                  style={{ width: "100%", accentColor: "var(--cyan)" }}
+                />
+              </div>
+
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#8da6be", marginBottom: "4px" }}>
+                  <span>Temporal Decay</span>
+                  <strong>{temporalWeight}</strong>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="1.0"
+                  step="0.05"
+                  value={temporalWeight}
+                  onChange={(e) => setTemporalWeight(parseFloat(e.target.value))}
+                  style={{ width: "100%", accentColor: "var(--cyan)" }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="primary-btn full"
+            style={{ marginTop: "18px", padding: "13px", fontSize: "14px", fontWeight: 700 }}
+            onClick={handleRunInference}
+            disabled={isAnalyzing}
+          >
+            {isAnalyzing ? "⚙️ Running Neural Spatio-Temporal Inference..." : "🤖 Run Spatio-Temporal Prediction"}
+          </button>
+        </div>
+
+        {/* Right Column: Prediction Intelligence HUD */}
+        <div className="card prediction-result">
+          {isAnalyzing ? (
+            <div className="empty-state" style={{ minHeight: "450px" }}>
+              <div style={{ fontSize: "52px", animation: "radarSpin 3s linear infinite" }}>
+                📡
+              </div>
+              <h3 style={{ marginTop: "18px", color: "var(--cyan)" }}>
+                Computing Spatial-Temporal Convergence...
+              </h3>
+              <p style={{ maxWidth: "420px", color: "#8da6be", fontSize: "13px" }}>
+                {analysisStep === 1 && "Step 1/4: Ingesting transaction coordinates & IP proxy vectors..."}
+                {analysisStep === 2 && "Step 2/4: Running CNN spatial feature map extraction across 142 clusters..."}
+                {analysisStep === 3 && "Step 3/4: LSTM sequence matching for cash extraction velocity..."}
+                {analysisStep === 4 && "Step 4/4: Calculating ATM vulnerability index..."}
+              </p>
+              <div
+                style={{
+                  width: "280px",
+                  height: "6px",
+                  background: "rgba(57,215,255,0.1)",
+                  borderRadius: "999px",
+                  overflow: "hidden",
+                  marginTop: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${analysisStep * 25}%`,
+                    height: "100%",
+                    background: "var(--cyan)",
+                    transition: "width 0.25s ease",
+                  }}
+                />
+              </div>
+            </div>
+          ) : !prediction ? (
+            <div className="empty-state">
+              <div>🤖</div>
+              <h3>Prediction Ready</h3>
+              <p>Select a complaint or simulate parameters and generate prediction.</p>
+            </div>
+          ) : (
+            <>
+              {/* Result Header */}
+              <div className="result-header">
+                <div>
+                  <span style={{ fontSize: "11px", color: "#8ca5bd", textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>
+                    AI Predictive Assessment
+                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "2px" }}>
+                    <strong style={{ fontSize: "16px", color: "#fff" }}>
+                      Predicted Cash-Out Intelligence
+                    </strong>
+                    <span
+                      className={`badge ${
+                        prediction.score >= 85
+                          ? "danger"
+                          : prediction.score >= 70
+                          ? "pending"
+                          : "success"
+                      }`}
+                    >
+                      {prediction.riskLevel} WITHDRAWAL RISK
+                    </span>
+                  </div>
+                </div>
+
+                <span
+                  style={{
+                    fontSize: "12px",
+                    fontFamily: "'JetBrains Mono', monospace",
+                    color: "var(--cyan)",
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    background: "rgba(57,215,255,0.08)",
+                  }}
+                >
+                  🎯 {prediction.confidence} Confidence
+                </span>
+              </div>
+
+              {/* Risk Score Circle with Animated SVG Gauge */}
+              <div className="risk-score" style={{ padding: "18px 0" }}>
+                <div className="score-circle-wrapper">
+                  <svg className="score-ring-svg" viewBox="0 0 190 190" width="190" height="190">
+                    {/* Background track */}
+                    <circle
+                      cx="95" cy="95" r="82"
+                      fill="none"
+                      stroke="rgba(140,165,189,0.08)"
+                      strokeWidth="7"
+                    />
+                    {/* Animated arc fill */}
+                    <circle
+                      cx="95" cy="95" r="82"
+                      fill="none"
+                      className="score-ring-arc"
+                      stroke={
+                        prediction.score >= 85
+                          ? "#ff4d67"
+                          : prediction.score >= 70
+                          ? "#ffd166"
+                          : "#35e7a3"
+                      }
+                      strokeWidth="7"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 82}`}
+                      strokeDashoffset={`${2 * Math.PI * 82 * (1 - prediction.score / 100)}`}
+                      transform="rotate(-90 95 95)"
+                      style={{
+                        filter: `drop-shadow(0 0 6px ${
+                          prediction.score >= 85
+                            ? "rgba(255,77,103,.45)"
+                            : prediction.score >= 70
+                            ? "rgba(255,209,102,.45)"
+                            : "rgba(53,231,163,.45)"
+                        })`,
+                      }}
+                    />
+                    {/* Rotating scanner dot on the arc tip */}
+                    <circle
+                      cx="95" cy="13"
+                      r="4.5"
+                      className="score-ring-dot"
+                      fill={
+                        prediction.score >= 85
+                          ? "#ff8293"
+                          : prediction.score >= 70
+                          ? "#ffd873"
+                          : "#5df0b5"
+                      }
+                      style={{
+                        transformOrigin: "95px 95px",
+                        animation: "scoreRingOrbit 4s linear infinite",
+                        filter: `drop-shadow(0 0 8px ${
+                          prediction.score >= 85
+                            ? "rgba(255,77,103,.6)"
+                            : prediction.score >= 70
+                            ? "rgba(255,209,102,.6)"
+                            : "rgba(53,231,163,.6)"
+                        })`,
+                      }}
+                    />
+                  </svg>
+                  {/* Center text overlay */}
+                  <div className="score-circle-text">
+                    <strong
+                      style={{
+                        color:
+                          prediction.score >= 85
+                            ? "#ff8293"
+                            : prediction.score >= 70
+                            ? "#ffd873"
+                            : "#5df0b5",
+                      }}
+                    >
+                      {prediction.score}%
+                    </strong>
+                    <span>Withdrawal Threat</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Primary Telemetry */}
+              <div className="prediction-info">
+                <div>
+                  <span>Predicted Withdrawal Hotspot Corridor</span>
+                  <strong style={{ fontSize: "14.5px" }}>📍 {prediction.location}</strong>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <div>
+                    <span>Expected Peak Window</span>
+                    <strong>🕐 {prediction.time}</strong>
+                  </div>
+
+                  <div>
+                    <span>High-Risk Dispensers</span>
+                    <strong>🏧 {prediction.nearby}</strong>
+                  </div>
+                </div>
+
+                <div>
+                  <span>Mule Extraction Velocity Pattern</span>
+                  <strong style={{ fontSize: "12.5px", color: "#cbd5e1" }}>
+                    ⚡ {prediction.velocity}
+                  </strong>
+                </div>
+              </div>
+
+              {/* Tactical Recommendation Box */}
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "14px 16px",
+                  borderRadius: "10px",
+                  background: "rgba(255, 157, 69, 0.05)",
+                  border: "1px solid rgba(255, 157, 69, 0.2)",
+                }}
+              >
+                <strong style={{ display: "block", color: "#ffd07c", fontSize: "12px", fontFamily: "'JetBrains Mono', monospace", textTransform: "uppercase", marginBottom: "4px" }}>
+                  🚨 Recommended Tactical Law Enforcement Action
+                </strong>
+                <p style={{ margin: 0, color: "#cbd5e1", fontSize: "12.5px", lineHeight: "1.5" }}>
+                  {prediction.recommendedAction}
+                </p>
+              </div>
+
+              {/* Target ATM Vulnerability Matrix Table */}
+              {prediction.atms && prediction.atms.length > 0 && (
+                <div style={{ marginTop: "18px" }}>
+                  <h4 style={{ margin: "0 0 10px", fontSize: "13.5px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>🏧 High-Vulnerability Cash Dispenser Matrix</span>
+                    <small style={{ color: "#8ca5bd", fontWeight: "normal", fontSize: "11px" }}>
+                      Immediate Geofence Perimeter
+                    </small>
+                  </h4>
+
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px" }}>
+                      <thead>
+                        <tr>
+                          <th>ATM / Branch</th>
+                          <th>Distance</th>
+                          <th>Threat Index</th>
+                          <th>CCTV Sensor</th>
+                          <th style={{ textAlign: "right" }}>Patrol Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {prediction.atms.map((atm) => (
+                          <tr key={atm.id}>
+                            <td>
+                              <strong>{atm.name}</strong>
+                              <small style={{ display: "block", color: "#8da6be", fontSize: "10.5px" }}>
+                                {atm.id}
+                              </small>
+                            </td>
+                            <td>
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                                {atm.dist}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={parseInt(atm.threat) >= 85 ? "badge danger" : "badge pending"}>
+                                {atm.threat}
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: "11.5px", color: "#5df0b5" }}>
+                                {atm.cctv}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: "right" }}>
+                              <button
+                                type="button"
+                                className={dispatchedAtms[atm.id] ? "primary-btn" : "small-btn"}
+                                style={{
+                                  padding: "5px 10px",
+                                  fontSize: "11px",
+                                  background: dispatchedAtms[atm.id] ? "var(--green)" : undefined,
+                                  color: dispatchedAtms[atm.id] ? "#05150f" : undefined,
+                                }}
+                                onClick={() => handleDispatchPatrol(atm)}
+                              >
+                                {dispatchedAtms[atm.id] ? "✓ Dispatched" : "🚨 Dispatch Unit"}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="prediction-actions" style={{ flexWrap: "wrap", marginTop: "20px" }}>
+                <button
+                  type="button"
+                  className="danger-btn"
+                  onClick={handleDispatchSectorPatrol}
+                >
+                  🚨 Dispatch Sector Mobile Patrol
+                </button>
+
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={handleFreezeNotice}
+                >
+                  🔒 Issue Urgent Freeze Mandate
+                </button>
+
+                <Link to="/heatmap" className="primary-btn">
+                  🗺️ View on Live GIS Map →
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
+/* =====================================================
+   REALISTIC GIS MAP & INTELLIGENCE ENGINE
+===================================================== */
+
+const cityMapConfigs = {
+  Mumbai: {
+    center: [19.0760, 72.8777],
+    zoom: 12,
+  },
+  Pune: {
+    center: [18.5204, 73.8567],
+    zoom: 12,
+  },
+  Delhi: {
+    center: [28.6139, 77.2090],
+    zoom: 12,
+  },
+  Bengaluru: {
+    center: [12.9716, 77.5946],
+    zoom: 12,
+  },
+};
+
+const hotspotData = [
+  // Mumbai Hotspots
+  {
+    id: "mumbai-1",
+    city: "Mumbai",
+    state: "Maharashtra",
+    name: "Andheri East & West Corridor",
+    coordinates: [19.1136, 72.8697],
+    score: 87,
+    level: "HIGH",
+    complaints: 142,
+    withdrawals: 68,
+    nearbyAtms: 24,
+    timeWindow: "19:00 - 22:00",
+    category: "UPI & ATM Fraud",
+    radius: 1500,
+    cctvCoverage: "78%",
+    highRiskAtms: [
+      { id: "ATM-MUM-01", name: "SBI Main Link Rd", coords: [19.1165, 72.8650], risk: "92% Risk" },
+      { id: "ATM-MUM-02", name: "HDFC Metro Station", coords: [19.1190, 72.8750], risk: "88% Risk" },
+      { id: "ATM-MUM-03", name: "ICICI Western Express", coords: [19.1090, 72.8630], risk: "79% Risk" },
+    ],
+  },
+  {
+    id: "mumbai-2",
+    city: "Mumbai",
+    state: "Maharashtra",
+    name: "South Mumbai Financial District",
+    coordinates: [18.9322, 72.8264],
+    score: 91,
+    level: "CRITICAL",
+    complaints: 186,
+    withdrawals: 94,
+    nearbyAtms: 32,
+    timeWindow: "20:00 - 23:00",
+    category: "Online Banking Fraud",
+    radius: 1700,
+    cctvCoverage: "88%",
+    highRiskAtms: [
+      { id: "ATM-MUM-04", name: "Axis Bank Fort Branch", coords: [18.9340, 72.8310], risk: "94% Risk" },
+      { id: "ATM-MUM-05", name: "Bank of India Nariman", coords: [18.9270, 72.8220], risk: "89% Risk" },
+    ],
+  },
+  {
+    id: "mumbai-3",
+    city: "Mumbai",
+    state: "Maharashtra",
+    name: "Bandra West & BKC Complex",
+    coordinates: [19.0600, 72.8350],
+    score: 64,
+    level: "MEDIUM",
+    complaints: 78,
+    withdrawals: 32,
+    nearbyAtms: 18,
+    timeWindow: "18:00 - 21:00",
+    category: "Phishing",
+    radius: 1300,
+    cctvCoverage: "84%",
+    highRiskAtms: [
+      { id: "ATM-MUM-06", name: "Kotak BKC Hub", coords: [19.0650, 72.8680], risk: "71% Risk" },
+      { id: "ATM-MUM-07", name: "SBI Hill Road", coords: [19.0550, 72.8310], risk: "66% Risk" },
+    ],
+  },
+  {
+    id: "mumbai-4",
+    city: "Mumbai",
+    state: "Maharashtra",
+    name: "Dadar Transit Commercial Hub",
+    coordinates: [19.0178, 72.8478],
+    score: 78,
+    level: "HIGH",
+    complaints: 110,
+    withdrawals: 52,
+    nearbyAtms: 20,
+    timeWindow: "17:30 - 20:30",
+    category: "ATM Skimming",
+    radius: 1200,
+    cctvCoverage: "72%",
+    highRiskAtms: [
+      { id: "ATM-MUM-08", name: "Canara Bank Dadar TT", coords: [19.0200, 72.8490], risk: "81% Risk" },
+      { id: "ATM-MUM-09", name: "PNB Ranade Road", coords: [19.0150, 72.8430], risk: "76% Risk" },
+    ],
+  },
+  {
+    id: "mumbai-5",
+    city: "Mumbai",
+    state: "Maharashtra",
+    name: "Thane West Commercial Center",
+    coordinates: [19.2183, 72.9781],
+    score: 69,
+    level: "MEDIUM",
+    complaints: 88,
+    withdrawals: 41,
+    nearbyAtms: 16,
+    timeWindow: "19:30 - 22:30",
+    category: "UPI Fraud",
+    radius: 1400,
+    cctvCoverage: "69%",
+    highRiskAtms: [
+      { id: "ATM-MUM-10", name: "HDFC Viviana Mall", coords: [19.2090, 72.9720], risk: "73% Risk" },
+    ],
+  },
+
+  // Pune Hotspots
+  {
+    id: "pune-1",
+    city: "Pune",
+    state: "Maharashtra",
+    name: "Shivaji Nagar & FC Road Hub",
+    coordinates: [18.5314, 73.8446],
+    score: 83,
+    level: "HIGH",
+    complaints: 95,
+    withdrawals: 44,
+    nearbyAtms: 18,
+    timeWindow: "18:00 - 21:00",
+    category: "UPI Fraud",
+    radius: 1400,
+    cctvCoverage: "75%",
+    highRiskAtms: [
+      { id: "ATM-PUN-01", name: "SBI FC Road Kiosk", coords: [18.5280, 73.8420], risk: "86% Risk" },
+    ],
+  },
+  {
+    id: "pune-2",
+    city: "Pune",
+    state: "Maharashtra",
+    name: "Hinjewadi IT Tech Corridor",
+    coordinates: [18.5913, 73.7389],
+    score: 72,
+    level: "MEDIUM",
+    complaints: 64,
+    withdrawals: 28,
+    nearbyAtms: 15,
+    timeWindow: "19:00 - 22:00",
+    category: "Phishing & SIM Swap",
+    radius: 1500,
+    cctvCoverage: "80%",
+    highRiskAtms: [
+      { id: "ATM-PUN-02", name: "ICICI Phase 1", coords: [18.5950, 73.7420], risk: "75% Risk" },
+    ],
+  },
+
+  // Delhi Hotspots
+  {
+    id: "delhi-1",
+    city: "Delhi",
+    state: "Delhi",
+    name: "Connaught Place Financial Circle",
+    coordinates: [28.6315, 77.2167],
+    score: 89,
+    level: "HIGH",
+    complaints: 162,
+    withdrawals: 77,
+    nearbyAtms: 28,
+    timeWindow: "19:00 - 22:00",
+    category: "Online Banking Fraud",
+    radius: 1600,
+    cctvCoverage: "92%",
+    highRiskAtms: [
+      { id: "ATM-DEL-01", name: "SBI Inner Circle", coords: [28.6330, 77.2190], risk: "91% Risk" },
+    ],
+  },
+  {
+    id: "delhi-2",
+    city: "Delhi",
+    state: "Delhi",
+    name: "Karol Bagh Commercial Zone",
+    coordinates: [28.6517, 77.1906],
+    score: 76,
+    level: "HIGH",
+    complaints: 98,
+    withdrawals: 46,
+    nearbyAtms: 22,
+    timeWindow: "18:30 - 21:30",
+    category: "ATM Fraud",
+    radius: 1300,
+    cctvCoverage: "71%",
+    highRiskAtms: [
+      { id: "ATM-DEL-02", name: "HDFC Market Rd", coords: [28.6530, 77.1920], risk: "78% Risk" },
+    ],
+  },
+
+  // Bengaluru Hotspots
+  {
+    id: "bengaluru-1",
+    city: "Bengaluru",
+    state: "Karnataka",
+    name: "MG Road & Indiranagar Corridor",
+    coordinates: [12.9716, 77.5946],
+    score: 84,
+    level: "HIGH",
+    complaints: 128,
+    withdrawals: 58,
+    nearbyAtms: 26,
+    timeWindow: "19:00 - 22:00",
+    category: "UPI & Card Cloning",
+    radius: 1400,
+    cctvCoverage: "85%",
+    highRiskAtms: [
+      { id: "ATM-BLR-01", name: "Axis Bank Metro Station", coords: [12.9750, 77.6080], risk: "88% Risk" },
+    ],
+  },
+  {
+    id: "bengaluru-2",
+    city: "Bengaluru",
+    state: "Karnataka",
+    name: "Electronic City Commercial Corridor",
+    coordinates: [12.8452, 77.6602],
+    score: 68,
+    level: "MEDIUM",
+    complaints: 74,
+    withdrawals: 31,
+    nearbyAtms: 19,
+    timeWindow: "18:00 - 21:00",
+    category: "Phishing",
+    radius: 1500,
+    cctvCoverage: "78%",
+    highRiskAtms: [
+      { id: "ATM-BLR-02", name: "SBI Phase 1 Hub", coords: [12.8480, 77.6630], risk: "70% Risk" },
+    ],
+  },
+];
+
+function GISMap({
+  city,
+  filteredHotspots,
+  selectedLocation,
+  onSelectLocation,
+}) {
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const layersGroupRef = useRef(null);
+  const baseLayersRef = useRef({});
+  const activeBaseLayerRef = useRef(null);
+
+  const [mapStyle, setMapStyle] = useState("dark"); // 'dark' | 'satellite' | 'streets'
+  const [showHeat, setShowHeat] = useState(true);
+  const [showHotspots, setShowHotspots] = useState(true);
+  const [showAtms, setShowAtms] = useState(true);
+  const [showRadar, setShowRadar] = useState(true);
+
+  // Initialize Leaflet Map
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    if (!mapInstanceRef.current) {
+      const initialCity = cityMapConfigs[city] || cityMapConfigs.Mumbai;
+
+      const map = L.map(mapContainerRef.current, {
+        center: initialCity.center,
+        zoom: initialCity.zoom,
+        zoomControl: false,
+        attributionControl: false,
+      });
+
+      // Zoom control in bottom right
+      L.control.zoom({ position: "bottomright" }).addTo(map);
+
+      // Attribution
+      L.control
+        .attribution({ position: "bottomleft", prefix: false })
+        .addAttribution('CybeX GIS Engine &copy; <a href="https://carto.com/" target="_blank">CARTO</a> / <a href="https://www.esri.com/" target="_blank">Esri</a>')
+        .addTo(map);
+
+      // Base tile layers
+      const darkLayer = L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        {
+          subdomains: "abcd",
+          maxZoom: 19,
+        }
+      );
+
+      const satelliteLayer = L.layerGroup([
+        L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          { maxZoom: 18 }
+        ),
+        L.tileLayer(
+          "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+          { maxZoom: 18, opacity: 0.85 }
+        ),
+      ]);
+
+      const streetsLayer = L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+        {
+          subdomains: "abcd",
+          maxZoom: 19,
+        }
+      );
+
+      baseLayersRef.current = {
+        dark: darkLayer,
+        satellite: satelliteLayer,
+        streets: streetsLayer,
+      };
+
+      // Set initial base layer
+      darkLayer.addTo(map);
+      activeBaseLayerRef.current = darkLayer;
+
+      // Group for overlays
+      const layersGroup = L.layerGroup().addTo(map);
+      layersGroupRef.current = layersGroup;
+
+      mapInstanceRef.current = map;
+    }
+
+    return () => {
+      // Map cleanup on unmount if needed
+    };
+  }, []);
+
+  // Update Base Layer
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !baseLayersRef.current[mapStyle]) return;
+
+    if (activeBaseLayerRef.current) {
+      map.removeLayer(activeBaseLayerRef.current);
+    }
+
+    const nextLayer = baseLayersRef.current[mapStyle];
+    nextLayer.addTo(map);
+    activeBaseLayerRef.current = nextLayer;
+  }, [mapStyle]);
+
+  // Center/Fly to city when city prop changes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const targetConfig = cityMapConfigs[city] || cityMapConfigs.Mumbai;
+    map.flyTo(targetConfig.center, targetConfig.zoom, {
+      duration: 1.4,
+      easeLinearity: 0.25,
+    });
+  }, [city]);
+
+  // Center/Fly when selected location changes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !selectedLocation) return;
+
+    map.flyTo(selectedLocation.coordinates, 13.5, {
+      duration: 1.1,
+      easeLinearity: 0.3,
+    });
+  }, [selectedLocation]);
+
+  // Render Overlays: Heat Circles, Hotspots, ATMs
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const layersGroup = layersGroupRef.current;
+    if (!map || !layersGroup) return;
+
+    layersGroup.clearLayers();
+
+    // 1. Render Heat Zones
+    if (showHeat) {
+      filteredHotspots.forEach((item) => {
+        const isSelected = selectedLocation?.id === item.id;
+        const color =
+          item.score >= 85
+            ? "#ff4d67"
+            : item.score >= 70
+            ? "#ff9d45"
+            : "#ffd166";
+
+        const circle = L.circle(item.coordinates, {
+          radius: item.radius,
+          color: color,
+          fillColor: color,
+          fillOpacity: isSelected ? 0.30 : 0.16,
+          weight: isSelected ? 2.5 : 1.2,
+          dashArray: isSelected ? "4, 6" : undefined,
+          className: "heat-risk-circle",
+        });
+
+        circle.on("click", () => onSelectLocation(item));
+        circle.addTo(layersGroup);
+      });
+    }
+
+    // 2. Render Hotspot Markers
+    if (showHotspots) {
+      filteredHotspots.forEach((item) => {
+        const isSelected = selectedLocation?.id === item.id;
+        const colorClass =
+          item.score >= 85
+            ? "marker-critical"
+            : item.score >= 70
+            ? "marker-high"
+            : "marker-medium";
+
+        const iconHtml = `
+          <div class="gis-hotspot-pin ${colorClass} ${isSelected ? "is-active" : ""}">
+            <div class="pin-radar-ring"></div>
+            <div class="pin-core">
+              <span class="pin-score">${item.score}%</span>
+            </div>
+            <div class="pin-label">${item.name.split(" ")[0]}</div>
+          </div>
+        `;
+
+        const customIcon = L.divIcon({
+          className: "custom-gis-div-icon",
+          html: iconHtml,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+          popupAnchor: [0, -20],
+        });
+
+        const marker = L.marker(item.coordinates, { icon: customIcon });
+
+        const popupContent = `
+          <div class="gis-popup-card">
+            <div class="gis-popup-header">
+              <span class="gis-popup-badge ${item.level.toLowerCase()}">${item.level} RISK</span>
+              <strong>${item.score}% Threat</strong>
+            </div>
+            <h4 class="gis-popup-title">📍 ${item.name}</h4>
+            <div class="gis-popup-meta">
+              <p><span>Expected:</span> <strong>${item.timeWindow}</strong></p>
+              <p><span>Complaints:</span> <strong>${item.complaints} cases</strong></p>
+              <p><span>Nearby ATMs:</span> <strong>${item.nearbyAtms} active</strong></p>
+            </div>
+            <button id="inspect-btn-${item.id}" class="gis-popup-btn">
+              🎯 Inspect Intelligence Details
+            </button>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent, {
+          className: "cybex-leaflet-popup",
+          closeButton: true,
+        });
+
+        marker.on("popupopen", () => {
+          const btn = document.getElementById(`inspect-btn-${item.id}`);
+          if (btn) {
+            btn.onclick = () => {
+              onSelectLocation(item);
+              map.closePopup();
+            };
+          }
+        });
+
+        marker.on("click", () => {
+          onSelectLocation(item);
+        });
+
+        marker.addTo(layersGroup);
+      });
+    }
+
+    // 3. Render High-Risk ATM Nodes
+    if (showAtms) {
+      filteredHotspots.forEach((spot) => {
+        (spot.highRiskAtms || []).forEach((atm) => {
+          const atmIconHtml = `
+            <div class="gis-atm-pin" title="${atm.name}">
+              <div class="atm-badge">🏧</div>
+            </div>
+          `;
+
+          const atmIcon = L.divIcon({
+            className: "custom-atm-div-icon",
+            html: atmIconHtml,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            popupAnchor: [0, -14],
+          });
+
+          const atmMarker = L.marker(atm.coords, { icon: atmIcon });
+
+          const atmPopup = `
+            <div class="gis-popup-card atm-popup">
+              <div class="gis-popup-header">
+                <span class="gis-popup-badge danger">${atm.risk}</span>
+                <small>${atm.id}</small>
+              </div>
+              <h4 class="gis-popup-title">🏧 ${atm.name}</h4>
+              <p class="gis-popup-subtitle">High vulnerability cash-out point</p>
+            </div>
+          `;
+
+          atmMarker.bindPopup(atmPopup, {
+            className: "cybex-leaflet-popup",
+          });
+
+          atmMarker.addTo(layersGroup);
+        });
+      });
+    }
+  }, [filteredHotspots, selectedLocation, showHeat, showHotspots, showAtms]);
+
+  return (
+    <div className="gis-map-wrapper">
+      {/* Real Interactive Leaflet Map Container */}
+      <div ref={mapContainerRef} className="gis-leaflet-container" />
+
+      {/* Optional Radar Sweep HUD */}
+      {showRadar && <div className="gis-radar-sweep-overlay" />}
+
+      {/* Floating HUD Controls */}
+      <div className="gis-hud-top-left">
+        <div className="gis-hud-pill">
+          <span className="live-dot"></span>
+          <strong>LIVE GIS ENGINE</strong>
+          <span className="gis-city-tag">{city.toUpperCase()}</span>
+        </div>
+      </div>
+
+      <div className="gis-hud-top-right">
+        {/* Base Layer Switcher */}
+        <div className="gis-layer-switcher">
+          <button
+            type="button"
+            className={mapStyle === "dark" ? "active" : ""}
+            onClick={() => setMapStyle("dark")}
+            title="Cyber Dark Matter"
+          >
+            🕶️ Dark Cyber
+          </button>
+          <button
+            type="button"
+            className={mapStyle === "satellite" ? "active" : ""}
+            onClick={() => setMapStyle("satellite")}
+            title="Real Satellite Aerial Hybrid"
+          >
+            🛰️ Satellite
+          </button>
+          <button
+            type="button"
+            className={mapStyle === "streets" ? "active" : ""}
+            onClick={() => setMapStyle("streets")}
+            title="Daylight Street Navigation"
+          >
+            🗺️ Streets
+          </button>
+        </div>
+
+        {/* Overlay Layer Toggles */}
+        <div className="gis-toggle-strip">
+          <button
+            type="button"
+            className={`gis-toggle-btn ${showHeat ? "on" : ""}`}
+            onClick={() => setShowHeat(!showHeat)}
+            title="Toggle Threat Heat Zones"
+          >
+            🔥 Heat
+          </button>
+          <button
+            type="button"
+            className={`gis-toggle-btn ${showHotspots ? "on" : ""}`}
+            onClick={() => setShowHotspots(!showHotspots)}
+            title="Toggle Hotspot Beacons"
+          >
+            📍 Hotspots
+          </button>
+          <button
+            type="button"
+            className={`gis-toggle-btn ${showAtms ? "on" : ""}`}
+            onClick={() => setShowAtms(!showAtms)}
+            title="Toggle High-Risk ATM Nodes"
+          >
+            🏧 ATMs
+          </button>
+          <button
+            type="button"
+            className={`gis-toggle-btn ${showRadar ? "on" : ""}`}
+            onClick={() => setShowRadar(!showRadar)}
+            title="Toggle Live Radar HUD"
+          >
+            📡 Radar
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom Floating Legend */}
+      <div className="gis-hud-legend">
+        <strong>THREAT LEVELS</strong>
+        <div className="gis-legend-items">
+          <span><i className="dot critical"></i> 85%+ Critical</span>
+          <span><i className="dot high"></i> 70-84% High</span>
+          <span><i className="dot medium"></i> &lt;70% Moderate</span>
+          <span><i className="dot atm"></i> ATM Vulnerability</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Heatmap() {
+  const [selectedState, setSelectedState] = useState("Maharashtra");
+  const [selectedDistrict, setSelectedDistrict] = useState("Mumbai");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedTimeframe, setSelectedTimeframe] = useState("Today");
+
+  // Filter hotspots based on current filters
+  const filteredHotspots = hotspotData.filter((item) => {
+    const matchesCity = item.city === selectedDistrict;
+    const matchesCategory =
+      selectedCategory === "All" ||
+      item.category.toLowerCase().includes(selectedCategory.toLowerCase());
+    return matchesCity && matchesCategory;
+  });
+
+  // Selected Location for inspection (defaults to first in city)
+  const [selectedLocation, setSelectedLocation] = useState(
+    () => hotspotData.find((h) => h.city === "Mumbai") || hotspotData[0]
+  );
+
+  // When district changes, sync default selected location
+  function handleDistrictChange(newDistrict) {
+    setSelectedDistrict(newDistrict);
+    const firstInCity = hotspotData.find((h) => h.city === newDistrict);
+    if (firstInCity) {
+      setSelectedLocation(firstInCity);
+    }
+  }
+
+  function handleStateChange(newState) {
+    setSelectedState(newState);
+    if (newState === "Maharashtra") {
+      handleDistrictChange("Mumbai");
+    } else if (newState === "Delhi") {
+      handleDistrictChange("Delhi");
+    } else if (newState === "Karnataka") {
+      handleDistrictChange("Bengaluru");
+    }
+  }
+
+  return (
+    <Layout title="Risk Heatmap">
+      <div className="page-toolbar">
+        <div>
+          <h2>Predictive Geospatial Intelligence</h2>
+          <p>
+            Interactive multi-layer GIS mapping of cyber fraud withdrawal risk
+          </p>
+        </div>
+      </div>
+
+      <div className="map-filters">
+        <select
+          value={selectedState}
+          onChange={(e) => handleStateChange(e.target.value)}
+        >
+          <option value="Maharashtra">Maharashtra</option>
+          <option value="Delhi">Delhi</option>
+          <option value="Karnataka">Karnataka</option>
+        </select>
+
+        <select
+          value={selectedDistrict}
+          onChange={(e) => handleDistrictChange(e.target.value)}
+        >
+          {selectedState === "Maharashtra" && (
+            <>
+              <option value="Mumbai">Mumbai</option>
+              <option value="Pune">Pune</option>
+            </>
+          )}
+          {selectedState === "Delhi" && <option value="Delhi">Delhi</option>}
+          {selectedState === "Karnataka" && (
+            <option value="Bengaluru">Bengaluru</option>
+          )}
+        </select>
+
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+        >
+          <option value="All">All Crime Categories</option>
+          <option value="UPI">UPI Fraud</option>
+          <option value="ATM">ATM Fraud & Skimming</option>
+          <option value="Phishing">Phishing</option>
+          <option value="Online Banking">Online Banking</option>
+        </select>
+
+        <select
+          value={selectedTimeframe}
+          onChange={(e) => setSelectedTimeframe(e.target.value)}
+        >
+          <option value="Today">Today (Real-time)</option>
+          <option value="Last 7 Days">Last 7 Days</option>
+          <option value="Last 30 Days">Last 30 Days</option>
+        </select>
+      </div>
+
+      <div className="map-layout">
+        <div className="map-container">
+          <GISMap
+            city={selectedDistrict}
+            filteredHotspots={filteredHotspots}
+            selectedLocation={selectedLocation}
+            onSelectLocation={setSelectedLocation}
+          />
+        </div>
+
+        <div className="card location-card">
+          <div className="card-header">
+            <div>
+              <h3>Intelligence Telemetry</h3>
+              <p>Real-time threat inspection</p>
+            </div>
+            <span
+              className={`badge ${
+                selectedLocation.score >= 85
+                  ? "danger"
+                  : selectedLocation.score >= 70
+                  ? "pending"
+                  : "success"
+              }`}
+            >
+              {selectedLocation.level}
+            </span>
+          </div>
+
+          <div className="location-name">
+            📍 {selectedLocation.name}
+          </div>
+
+          <div className="location-coords">
+            <span>Coordinates:</span>{" "}
+            <strong>
+              {selectedLocation.coordinates[0].toFixed(4)}° N,{" "}
+              {selectedLocation.coordinates[1].toFixed(4)}° E
+            </strong>
+          </div>
+
+          <div className="location-risk">
+            <span>Risk Score</span>
+            <strong className={selectedLocation.score >= 80 ? "red-text" : ""}>
+              {selectedLocation.score}%
+            </strong>
+          </div>
+
+          <div className="progress">
+            <div
+              style={{
+                width: `${selectedLocation.score}%`,
+                background:
+                  selectedLocation.score >= 85
+                    ? "linear-gradient(90deg, #ff405f, #ff8a91)"
+                    : selectedLocation.score >= 70
+                    ? "linear-gradient(90deg, #ff8d35, #ffc05c)"
+                    : "linear-gradient(90deg, #ffd166, #ffdf88)",
+              }}
+            ></div>
+          </div>
+
+          <div className="location-details">
+            <p>
+              <span>Recent Complaints</span>
+              <strong>{selectedLocation.complaints} cases</strong>
+            </p>
+
+            <p>
+              <span>Predicted Time Window</span>
+              <strong>🕐 {selectedLocation.timeWindow}</strong>
+            </p>
+
+            <p>
+              <span>Previous Withdrawals</span>
+              <strong>{selectedLocation.withdrawals} detected</strong>
+            </p>
+
+            <p>
+              <span>Nearby ATM Cluster</span>
+              <strong>🏧 {selectedLocation.nearbyAtms} ATMs</strong>
+            </p>
+
+            <p>
+              <span>CCTV Security Coverage</span>
+              <strong>📹 {selectedLocation.cctvCoverage}</strong>
+            </p>
+
+            <p>
+              <span>Primary Threat Category</span>
+              <strong className="red-text">{selectedLocation.category}</strong>
+            </p>
+          </div>
+
+          {selectedLocation.highRiskAtms && selectedLocation.highRiskAtms.length > 0 && (
+            <div className="location-atm-list">
+              <strong>High Vulnerability ATMs:</strong>
+              <div className="atm-pills">
+                {selectedLocation.highRiskAtms.map((atm) => (
+                  <div key={atm.id} className="atm-mini-pill">
+                    <span>🏧 {atm.name}</span>
+                    <b className="red-text">{atm.risk}</b>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="location-actions">
+            <button
+              type="button"
+              className="primary-btn full"
+              onClick={() =>
+                alert(
+                  `Preventive Patrol Alert dispatched to Law Enforcement Units for ${selectedLocation.name}. Expected Risk Window: ${selectedLocation.timeWindow}`
+                )
+              }
+            >
+              🚨 Dispatch Patrol Alert
+            </button>
+            <Link to="/prediction" className="secondary-btn full">
+              🤖 Run Deep Prediction
+            </Link>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
+/* =====================================================
+   OFFICER ALERTS
+===================================================== */
+
+function Alerts() {
+  const [alertList, setAlertList] =
+    useState(alerts);
+
+  function acknowledge(id) {
+    setAlertList(
+      alertList.map((alert) =>
+        alert.id === id
+          ? {
+              ...alert,
+              status: "Acknowledged",
+            }
+          : alert
+      )
+    );
+  }
+
+  return (
+    <Layout title="Alerts & Notifications">
+      <div className="alert-summary">
+        <div className="alert-summary-card danger-bg">
+          <strong>2</strong>
+          <span>High Risk Alerts</span>
+        </div>
+
+        <div className="alert-summary-card warning-bg">
+          <strong>1</strong>
+          <span>Medium Risk Alerts</span>
+        </div>
+
+        <div className="alert-summary-card safe-bg">
+          <strong>12</strong>
+          <span>Resolved Alerts</span>
+        </div>
+      </div>
+
+      <div className="alerts-list">
+        {alertList.map((alert) => (
+          <div
+            className={`full-alert ${alert.level.toLowerCase()}`}
+            key={alert.id}
+          >
+            <div className="full-alert-icon">
+              🚨
+            </div>
+
+            <div className="full-alert-content">
+              <div className="alert-title">
+                <h3>
+                  {alert.level} RISK DETECTED
+                </h3>
+
+                <span>{alert.status}</span>
+              </div>
+
+              <p>
+                Predicted cash withdrawal risk
+                detected at{" "}
+                <strong>{alert.location}</strong>.
+              </p>
+
+              <div className="alert-meta">
+                <span>
+                  🎯 Risk Score: {alert.score}%
+                </span>
+
+                <span>
+                  🕐 Expected: {alert.time}
+                </span>
+              </div>
+            </div>
+
+            <button
+              className="secondary-btn"
+              onClick={() =>
+                acknowledge(alert.id)
+              }
+            >
+              {alert.status === "Acknowledged"
+                ? "✓ Acknowledged"
+                : "Acknowledge"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </Layout>
+  );
+}
+
+/* =====================================================
+   REPORTS
+===================================================== */
+
+function Reports() {
+  const [selectedReport, setSelectedReport] = useState(() => officerReportsData[0]);
+
+  return (
+    <Layout title="Intelligence Reports">
+      <div className="page-toolbar">
+        <div>
+          <h2>Cybercrime Intelligence Reports</h2>
+
+          <p>
+            Generate and review actionable
+            intelligence
+          </p>
+        </div>
+
+        <button
+          className="primary-btn"
+          onClick={() =>
+            alert("Report generated")
+          }
+        >
+          + Generate Custom Report
+        </button>
+      </div>
+
+      <div className="reports-grid">
+        {officerReportsData.map((report) => (
+          <ReportCard
+            key={report.id}
+            icon={report.icon}
+            title={report.title}
+            description={report.description}
+            date={report.date}
+            active={selectedReport.id === report.id}
+            onClick={() => setSelectedReport(report)}
+          />
+        ))}
+      </div>
+
+      <div className="card intelligence-report" id="report-view-container">
+        <div className="report-header">
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <h2>{selectedReport.title}</h2>
+              <span className={`badge ${selectedReport.priorityClass}`}>
+                {selectedReport.priority}
+              </span>
+            </div>
+            <p>Report ID: {selectedReport.reportId} &bull; Generated: {selectedReport.date}</p>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="small-btn"
+              onClick={() =>
+                alert(
+                  `[EXPORT COMPLETE] ${selectedReport.title} (${selectedReport.reportId}) downloaded in encrypted PDF format.`
+                )
+              }
+            >
+              📥 Export PDF
+            </button>
+            <button
+              type="button"
+              className="small-btn"
+              onClick={() =>
+                alert(
+                  `[CSV EXPORT] Telemetry dataset for ${selectedReport.reportId} exported to CSV.`
+                )
+              }
+            >
+              📊 Export CSV
+            </button>
+            <button
+              type="button"
+              className="small-btn"
+              onClick={() => window.print()}
+            >
+              🖨️ Print
+            </button>
+          </div>
+        </div>
+
+        <div className="report-grid">
+          {selectedReport.metrics.map((metric, idx) => (
+            <div key={idx}>
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div className="report-summary-box" style={{ marginTop: "18px", padding: "14px 16px", borderRadius: "10px", background: "rgba(57,215,255,0.04)", border: "1px solid rgba(57,215,255,0.12)" }}>
+          <strong style={{ display: "block", color: "var(--cyan)", fontSize: "12px", fontFamily: "'JetBrains Mono', monospace", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "4px" }}>
+            Intelligence Executive Summary
+          </strong>
+          <p style={{ margin: 0, color: "#a5bdd3", fontSize: "13px", lineHeight: "1.6" }}>
+            {selectedReport.summary}
+          </p>
+        </div>
+
+        <div style={{ marginTop: "20px", overflowX: "auto" }}>
+          <h3 style={{ margin: "0 0 12px", fontSize: "14.5px" }}>Detailed Target Telemetry Breakdown</h3>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th>Location / Node / Target</th>
+                <th>Threat Metric / Volume</th>
+                <th>Time Window / Confidence</th>
+                <th>Enforcement Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedReport.tableData.map((row, idx) => (
+                <tr key={idx}>
+                  <td><strong>{row.col1}</strong></td>
+                  <td>{row.col2}</td>
+                  <td><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{row.col3}</span></td>
+                  <td>
+                    <span className={`badge ${row.badge}`}>
+                      {row.col4}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="recommendation">
+          <h3>Recommended Law Enforcement Action</h3>
+          <p>{selectedReport.actionPlan}</p>
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
+const officerReportsData = [
+  {
+    id: "daily-risk",
+    icon: "📊",
+    title: "Daily Risk & Predictive Hotspot Report",
+    description: "Daily summary of predicted withdrawal hotspots and tactical alerts.",
+    date: "25 Aug 2026",
+    reportId: "LEA-RPT-2026-0825-001",
+    priority: "HIGH PRIORITY",
+    priorityClass: "danger",
+    metrics: [
+      { label: "Predicted Risk Corridors", value: "Andheri & Fort" },
+      { label: "High Risk Peak Window", value: "19:00 - 22:00" },
+      { label: "Complaints Linked", value: "142 Incidents" },
+      { label: "Risk Score Peak", value: "91% Critical" },
+    ],
+    summary:
+      "Deep learning spatio-temporal intelligence indicates severe probability of ATM cash-outs in Western Mumbai. Multi-cluster correlation links 142 recent complaints to 3 transit zones.",
+    tableData: [
+      { col1: "Andheri East & West Corridor", col2: "87% Threat", col3: "19:00 - 22:00", col4: "Patrol Dispatched", badge: "danger" },
+      { col1: "South Mumbai Financial Dist.", col2: "91% Threat", col3: "20:00 - 23:00", col4: "High Alert", badge: "danger" },
+      { col1: "Bandra BKC Commercial Hub", col2: "64% Threat", col3: "18:00 - 21:00", col4: "Monitoring", badge: "warning" },
+      { col1: "Dadar Transit Hub", col2: "78% Threat", col3: "17:30 - 20:30", col4: "Under Watch", badge: "danger" },
+    ],
+    actionPlan:
+      "Dispatch proactive quick-response mobile patrol units to flagged coordinates before the 19:00 window. Inform bank security control rooms to monitor real-time CCTV feeds.",
+  },
+  {
+    id: "high-risk-intel",
+    icon: "🚨",
+    title: "High Risk Intelligence Briefing",
+    description: "Locations and syndicates with elevated predicted withdrawal risk.",
+    date: "25 Aug 2026",
+    reportId: "LEA-INTEL-2026-0825-002",
+    priority: "CRITICAL BRIEFING",
+    priorityClass: "danger",
+    metrics: [
+      { label: "Suspected Mule Networks", value: "4 Organized Rings" },
+      { label: "Estimated Fraud Impact", value: "₹68.4 Lakhs" },
+      { label: "Inter-State Linkages", value: "MH - DL - KA" },
+      { label: "Immediate Action Nodes", value: "12 ATMs Flagged" },
+    ],
+    summary:
+      "Intelligence correlation detected synchronized cash extraction pattern following nationwide SIM swap phishing campaign. Rapid fund distribution detected across 4 beneficiary layers.",
+    tableData: [
+      { col1: "Complaint #CC001 (UPI Layering)", col2: "₹4,50,000", col3: "Andheri Hub", col4: "Frozen", badge: "success" },
+      { col1: "Complaint #CC002 (Phishing APK)", col2: "₹1,85,000", col3: "Fort Branch", col4: "Investigating", badge: "danger" },
+      { col1: "Complaint #CC003 (ATM Skimming)", col2: "₹95,000", col3: "Dadar Area", col4: "Suspect Identified", badge: "warning" },
+      { col1: "Complaint #CC004 (Call Center Scam)", col2: "₹8,20,000", col3: "Thane West", col4: "Lien Placed", badge: "success" },
+    ],
+    actionPlan:
+      "Coordinate with Nodal Banking Officers for immediate lien attachment on beneficiary accounts under Section 102 CrPC.",
+  },
+  {
+    id: "gis-hotspot",
+    icon: "🗺️",
+    title: "GIS Geospatial Hotspot Analysis",
+    description: "Geographical mapping of cybercrime clusters and physical cash extraction points.",
+    date: "24 Aug 2026",
+    reportId: "LEA-GIS-2026-0824-003",
+    priority: "STRATEGIC INTEL",
+    priorityClass: "warning",
+    metrics: [
+      { label: "Analyzed Grid Sectors", value: "64 Sectors" },
+      { label: "High Risk Density Zones", value: "6 Clusters" },
+      { label: "ATM Coverage Ratio", value: "92% Mapped" },
+      { label: "CCTV Sensor Uptime", value: "88.4%" },
+    ],
+    summary:
+      "Spatial clustering analysis demonstrates strong spatial autocorrelation (Moran's I: 0.78) between corporate phishing incidents and subsequent cash withdrawal at transit metro ATMs.",
+    tableData: [
+      { col1: "Zone 1: Western Express Corridor", col2: "1500m Radius", col3: "24 Nearby ATMs", col4: "CCTV Active", badge: "danger" },
+      { col1: "Zone 2: South Mumbai Fort", col2: "1700m Radius", col3: "32 Nearby ATMs", col4: "High Density", badge: "danger" },
+      { col1: "Zone 3: Bandra BKC Tech Park", col2: "1300m Radius", col3: "18 Nearby ATMs", col4: "Patrol Active", badge: "warning" },
+      { col1: "Zone 4: Shivaji Nagar Pune", col2: "1400m Radius", col3: "18 Nearby ATMs", col4: "Coordinated", badge: "warning" },
+    ],
+    actionPlan:
+      "Maintain active spatial geofence surveillance and review high-resolution CCTV footage for suspect identification.",
+  },
+  {
+    id: "model-performance",
+    icon: "📈",
+    title: "ML Model Prediction Performance",
+    description: "Machine Learning model evaluation, precision-recall, and accuracy metrics.",
+    date: "24 Aug 2026",
+    reportId: "LEA-ML-2026-0824-004",
+    priority: "AI SYSTEM METRIC",
+    priorityClass: "success",
+    metrics: [
+      { label: "Overall Accuracy", value: "86.4%" },
+      { label: "Precision Score", value: "85.2%" },
+      { label: "Recall Rate", value: "84.0%" },
+      { label: "F1 Score Metric", value: "84.6%" },
+    ],
+    summary:
+      "Hybrid CNN-LSTM network evaluated on 12,450 historical fraud cases. Demonstrated 4.2% improvement in early withdrawal location prediction accuracy over baseline Random Forest.",
+    tableData: [
+      { col1: "Spatial Feature Extractor (CNN)", col2: "92.1% Accuracy", col3: "0.14 Loss", col4: "Optimized", badge: "success" },
+      { col1: "Temporal Sequence Predictor (LSTM)", col2: "87.8% Accuracy", col3: "0.19 Loss", col4: "Converged", badge: "success" },
+      { col1: "Mule Account Velocity Scorer", col2: "89.4% Accuracy", col3: "0.12 Loss", col4: "High Confidence", badge: "success" },
+      { col1: "False Positive Reduction Layer", col2: "94.6% Accuracy", col3: "0.08 Loss", col4: "Verified", badge: "success" },
+    ],
+    actionPlan:
+      "Schedule automatic weekly retraining cycle using newly submitted and verified cybercrime complaint coordinates.",
+  },
+];
+
+function ReportCard({
+  icon,
+  title,
+  description,
+  date,
+  active,
+  onClick,
+}) {
+  return (
+    <div className={`report-card ${active ? "is-active" : ""}`}>
+      <div className="report-icon">{icon}</div>
+
+      <h3>{title}</h3>
+
+      <p>{description}</p>
+
+      <small>Generated: {date}</small>
+
+      <button
+        type="button"
+        className={active ? "primary-btn" : "small-btn"}
+        style={active ? { padding: "7px 14px", fontSize: "12px" } : {}}
+        onClick={onClick}
+      >
+        {active ? "👁️ Viewing Report" : "View Report →"}
+      </button>
+    </div>
+  );
+}
+
+/* =====================================================
+   OFFICER SETTINGS
+===================================================== */
+
+function Settings() {
+  const [officerProfile, setOfficerProfile] = useState(() => {
+    try {
+      const saved = localStorage.getItem("cybex-officer-profile");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      id: "LEA-10245",
+      fullName: "",
+      department: "",
+      rank: "",
+      badgeNo: "",
+      email: "",
+      phone: "",
+    };
+  });
+
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  function handleChange(field, value) {
+    setOfficerProfile((prev) => ({ ...prev, [field]: value }));
+    setSavedSuccess(false);
+  }
+
+  function handleSave(e) {
+    e.preventDefault();
+    try {
+      localStorage.setItem("cybex-officer-profile", JSON.stringify(officerProfile));
+    } catch {}
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 4000);
+  }
+
+  return (
+    <Layout title="Admin & Settings">
+      <div className="settings-grid">
+        <div className="card">
+          <div className="profile-large">
+            <div className="avatar large">
+              {officerProfile.fullName.trim()
+                ? officerProfile.fullName
+                    .trim()
+                    .split(" ")
+                    .filter(Boolean)
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()
+                : "OF"}
+            </div>
+
+            <div>
+              <h2>{officerProfile.fullName.trim() || "Officer User"}</h2>
+              <p>
+                {officerProfile.rank.trim() || "LEA Officer"} &bull;{" "}
+                {officerProfile.id}
+              </p>
+            </div>
+          </div>
+
+          {savedSuccess && (
+            <div className="success-message" style={{ marginBottom: "18px" }}>
+              ✓ Officer credentials updated and verified successfully!
+            </div>
+          )}
+
+          <form onSubmit={handleSave}>
+            <div className="form-two-column">
+              <div>
+                <label>Officer ID (System ID)</label>
+                <input
+                  value={officerProfile.id}
+                  readOnly
+                  disabled
+                  placeholder="LEA-10245"
+                  style={{ opacity: 0.75, cursor: "not-allowed" }}
+                />
+              </div>
+
+              <div>
+                <label>Officer Full Name</label>
+                <input
+                  type="text"
+                  value={officerProfile.fullName}
+                  onChange={(e) => handleChange("fullName", e.target.value)}
+                  placeholder="e.g. Insp. Vikram Singhania"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-two-column">
+              <div>
+                <label>Department / Cyber Cell</label>
+                <input
+                  type="text"
+                  value={officerProfile.department}
+                  onChange={(e) => handleChange("department", e.target.value)}
+                  placeholder="e.g. Special Cyber Crime Branch, Crime Cell"
+                />
+              </div>
+
+              <div>
+                <label>Designation / Rank</label>
+                <input
+                  type="text"
+                  value={officerProfile.rank}
+                  onChange={(e) => handleChange("rank", e.target.value)}
+                  placeholder="e.g. Senior Cyber Crime Inspector"
+                />
+              </div>
+            </div>
+
+            <div className="form-two-column">
+              <div>
+                <label>Official LEA Email</label>
+                <input
+                  type="email"
+                  value={officerProfile.email}
+                  onChange={(e) => handleChange("email", e.target.value)}
+                  placeholder="e.g. vikram.cyber@police.gov.in"
+                />
+              </div>
+
+              <div>
+                <label>Official Contact / CUG</label>
+                <input
+                  type="tel"
+                  value={officerProfile.phone}
+                  onChange={(e) => handleChange("phone", e.target.value)}
+                  placeholder="e.g. +91 98200 12345"
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: "22px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              <button type="submit" className="primary-btn">
+                💾 Update Officer Profile
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => {
+                  const empty = {
+                    id: "LEA-10245",
+                    fullName: "",
+                    department: "",
+                    rank: "",
+                    badgeNo: "",
+                    email: "",
+                    phone: "",
+                  };
+                  setOfficerProfile(empty);
+                  try {
+                    localStorage.removeItem("cybex-officer-profile");
+                  } catch {}
+                  setSavedSuccess(false);
+                }}
+              >
+                Clear Form
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="card">
+          <h3>🤖 ML Model Information</h3>
+
+          <div className="model-info">
+            <div>
+              <span>Model</span>
+              <strong>CNN-LSTM</strong>
+            </div>
+
+            <div>
+              <span>Accuracy</span>
+              <strong>86%</strong>
+            </div>
+
+            <div>
+              <span>Precision</span>
+              <strong>85%</strong>
+            </div>
+
+            <div>
+              <span>Recall</span>
+              <strong>84%</strong>
+            </div>
+          </div>
+
+          <button className="secondary-btn">
+            Update Model
+          </button>
+        </div>
+
+        <div className="card">
+          <h3>🔔 Notification Settings</h3>
+
+          <SettingToggle
+            title="High Risk Alerts"
+            description="Receive alerts for high-risk locations"
+          />
+
+          <SettingToggle
+            title="Email Notifications"
+            description="Receive intelligence reports by email"
+          />
+
+          <SettingToggle
+            title="Dashboard Notifications"
+            description="Show real-time alerts"
+          />
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
+function SettingToggle({
+  title,
+  description,
+}) {
+  const [enabled, setEnabled] =
+    useState(true);
+
+  return (
+    <div className="setting-row">
+      <div>
+        <strong>{title}</strong>
+        <span>{description}</span>
+      </div>
+
+      <button
+        className={
+          enabled ? "toggle on" : "toggle"
+        }
+        onClick={() =>
+          setEnabled(!enabled)
+        }
+      >
+        <span></span>
+      </button>
+    </div>
+  );
+}
+
+/* =====================================================
+   CITIZEN SIDEBAR
+===================================================== */
+
+function CitizenSidebar() {
+  const location = useLocation();
+
+  const menu = [
+    {
+      path: "/citizen-dashboard",
+      icon: "🏠",
+      name: "Home",
+    },
+    {
+      path: "/report-cybercrime",
+      icon: "📝",
+      name: "Report Cybercrime",
+    },
+
+    {
+      path: "/my-complaints",
+      icon: "📋",
+      name: "My Complaints",
+    },
+    {
+      path: "/track-complaint",
+      icon: "🔍",
+      name: "Track Complaint",
+    },
+    {
+      path: "/citizen-alerts",
+      icon: "🚨",
+      name: "Safety Alerts",
+    },
+    {
+      path: "/citizen-profile",
+      icon: "👤",
+      name: "My Profile",
+    },
+  ];
+
+  return (
+    <aside className="sidebar citizen-sidebar">
+      <div className="logo">
+        <div className="logo-icon">🛡️</div>
+
+        <div>
+          <h2>CybeX</h2>
+          <span>Citizen Portal</span>
+        </div>
+      </div>
+
+      <nav>
+        {menu.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={
+              location.pathname === item.path
+                ? "menu-item active"
+                : "menu-item"
+            }
+          >
+            <span>{item.icon}</span>
+            {item.name}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="sidebar-bottom">
+        <div className="security-status">
+          <span className="status-dot"></span>
+          Secure Portal
+        </div>
+
+        <Link to="/" className="logout">
+          🚪 Logout
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
+function CitizenLayout({ children, title }) {
+  return (
+    <div className="app-layout">
+      <CitizenSidebar />
+
+      <main className="main-content">
+        <Header title={title} />
+
+        <div className="page-content page-enter">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* =====================================================
+   CITIZEN DASHBOARD
+===================================================== */
+
+function CitizenDashboard() {
+  return (
+    <CitizenLayout title="Citizen Dashboard">
+      <div className="citizen-welcome">
+        <div>
+          <span>Welcome back</span>
+          <h2>Citizen Portal</h2>
+          <p>
+            Report cybercrime, submit evidence and
+            track your complaints securely.
+          </p>
+        </div>
+
+        <div className="citizen-welcome-icon">
+          🛡️
+        </div>
+      </div>
+
+      <div className="stats-grid citizen-stats">
+        <StatCard
+          title="My Complaints"
+          value="4"
+          change="Active"
+          icon="📋"
+        />
+
+        <StatCard
+          title="Evidence Submitted"
+          value="8"
+          change="Secure"
+          icon="📎"
+        />
+
+        <StatCard
+          title="Under Investigation"
+          value="2"
+          change="Processing"
+          icon="🔎"
+        />
+
+        <StatCard
+          title="Resolved"
+          value="2"
+          change="Completed"
+          icon="✅"
+        />
+      </div>
+
+      <div className="citizen-action-grid">
+        <Link
+          to="/report-cybercrime"
+          className="citizen-action-card"
+        >
+          <span>📝</span>
+          <h3>Report Cybercrime</h3>
+          <p>
+            Submit a new cybercrime complaint.
+          </p>
+        </Link>
+
+        <Link
+          to="/track-complaint"
+          className="citizen-action-card"
+        >
+          <span>🔍</span>
+          <h3>Track Complaint</h3>
+          <p>
+            Check the current status of your
+            complaint.
+          </p>
+        </Link>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h3>Recent Complaints</h3>
+            <p>Your latest submitted complaints</p>
+          </div>
+
+          <Link
+            to="/my-complaints"
+            className="text-link"
+          >
+            View All →
+          </Link>
+        </div>
+
+        <CitizenComplaintTable />
+      </div>
+    </CitizenLayout>
+  );
+}
+
+/* =====================================================
+   CITIZEN REPORT
+===================================================== */
+
+function ReportCybercrime() {
+  const [submitted, setSubmitted] = useState(false);
+  // Evidence upload states (inline after complaint)
+  const [evidenceFile, setEvidenceFile] = useState(null);
+  const [evidenceType, setEvidenceType] = useState("");
+  const [evidenceDesc, setEvidenceDesc] = useState("");
+  const [evidenceUploaded, setEvidenceUploaded] = useState(false);
+
+  function submitComplaint(e) {
+    e.preventDefault();
+    setSubmitted(true);
+  }
+
+  function handleEvidenceFile(e) {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      setEvidenceFile(selectedFile);
+      setEvidenceUploaded(false);
+    }
+  }
+
+  function handleEvidenceUpload(e) {
+    e.preventDefault();
+    if (!evidenceFile) {
+      alert("Please select an evidence file.");
+      return;
+    }
+    if (!evidenceType) {
+      alert("Please select evidence type.");
+      return;
+    }
+    setEvidenceUploaded(true);
+  }
+
+  return (
+    <CitizenLayout title="Report Cybercrime">
+      <div className="form-page">
+        <div className="card form-card">
+          {!submitted ? (
+            <>
+              <div className="form-heading">
+                <span>📝</span>
+
+                <div>
+                  <h2>Report Cybercrime</h2>
+
+                  <p>
+                    Provide details about the
+                    cybercrime incident.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={submitComplaint}>
+                <div className="form-two-column">
+                  <div>
+                    <label>Crime Category</label>
+
+                    <select required>
+                      <option value="">
+                        Select category
+                      </option>
+
+                      <option>UPI Fraud</option>
+                      <option>Phishing</option>
+                      <option>ATM Fraud</option>
+                      <option>Online Banking Fraud</option>
+                      <option>Social Media Fraud</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label>Transaction Amount</label>
+
+                    <input
+                      type="number"
+                      placeholder="Enter amount"
+                    />
+                  </div>
+                </div>
+
+                <label>Incident Description</label>
+
+                <textarea
+                  rows="6"
+                  required
+                  placeholder="Describe what happened..."
+                ></textarea>
+
+                <label>Incident Location</label>
+
+                <input
+                  type="text"
+                  placeholder="Enter city / location"
+                />
+
+                <div className="form-actions">
+                  <button
+                    type="submit"
+                    className="primary-btn"
+                  >
+                    Submit Complaint
+                  </button>
+
+                  <Link
+                    to="/citizen-dashboard"
+                    className="secondary-btn"
+                  >
+                    Cancel
+                  </Link>
+                </div>
+              </form>
+            </>
+          ) : (
+            <div className="report-submitted-container">
+              {/* Complaint Success */}
+              <div className="success-state">
+                <div className="success-icon">
+                  ✓
+                </div>
+
+                <h2>Complaint Submitted</h2>
+
+                <p>
+                  Your complaint has been submitted
+                  successfully.
+                </p>
+
+                <div className="complaint-id-box">
+                  Complaint ID
+                  <strong>CC-2026-00125</strong>
+                </div>
+              </div>
+
+              {/* Inline Evidence Upload Section */}
+              <div className="inline-evidence-section">
+                <div className="form-heading">
+                  <span>📎</span>
+                  <div>
+                    <h2>Submit Evidence</h2>
+                    <p>Attach supporting evidence for complaint CC-2026-00125</p>
+                  </div>
+                </div>
+
+                {!evidenceUploaded ? (
+                  <form onSubmit={handleEvidenceUpload}>
+                    <label>Evidence Type</label>
+                    <select
+                      value={evidenceType}
+                      onChange={(e) => setEvidenceType(e.target.value)}
+                    >
+                      <option value="">Select evidence type</option>
+                      <option>Transaction Screenshot</option>
+                      <option>Bank Statement</option>
+                      <option>Chat / Message Screenshot</option>
+                      <option>Email</option>
+                      <option>Document</option>
+                      <option>Video</option>
+                      <option>Other</option>
+                    </select>
+
+                    <label>Evidence File</label>
+                    <div className="upload-box">
+                      <div className="upload-icon">📤</div>
+                      <h3>Drag & Drop Evidence</h3>
+                      <p>or choose a file from your device</p>
+                      <label className="file-btn">
+                        Choose File
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.mp4,.webm"
+                          onChange={handleEvidenceFile}
+                        />
+                      </label>
+
+                      {evidenceFile && (
+                        <div className="selected-file">
+                          <span>📄</span>
+                          <div>
+                            <strong>{evidenceFile.name}</strong>
+                            <small>
+                              {(evidenceFile.size / 1024 / 1024).toFixed(2)} MB
+                            </small>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <label>Evidence Description</label>
+                    <textarea
+                      rows="4"
+                      value={evidenceDesc}
+                      onChange={(e) => setEvidenceDesc(e.target.value)}
+                      placeholder="Briefly describe what this evidence proves..."
+                    ></textarea>
+
+                    <div className="evidence-note">
+                      🔒 Your evidence will be treated as confidential and will be available to authorized investigators.
+                    </div>
+
+                    <div className="form-actions">
+                      <button type="submit" className="primary-btn">
+                        📤 Upload Evidence
+                      </button>
+                      <Link to="/citizen-dashboard" className="secondary-btn">
+                        Skip & Go to Dashboard
+                      </Link>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="success-state evidence-success-inline">
+                    <div className="success-icon">✓</div>
+                    <h2>Evidence Submitted</h2>
+                    <p>Your evidence has been attached to complaint CC-2026-00125.</p>
+
+                    <div className="evidence-result">
+                      <div>
+                        <span>Evidence ID</span>
+                        <strong>EV-2026-00124</strong>
+                      </div>
+                      <div>
+                        <span>File</span>
+                        <strong>{evidenceFile?.name}</strong>
+                      </div>
+                      <div>
+                        <span>Status</span>
+                        <strong className="green-text">Submitted</strong>
+                      </div>
+                    </div>
+
+                    <div className="form-actions">
+                      <button
+                        className="secondary-btn"
+                        onClick={() => {
+                          setEvidenceUploaded(false);
+                          setEvidenceFile(null);
+                          setEvidenceType("");
+                          setEvidenceDesc("");
+                        }}
+                      >
+                        📎 Upload Another Evidence
+                      </button>
+                      <Link to="/citizen-dashboard" className="primary-btn">
+                        Go to Dashboard
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </CitizenLayout>
+  );
+}
+
+/* =====================================================
+   CITIZEN EVIDENCE UPLOAD
+===================================================== */
+
+function UploadEvidence() {
+  const [file, setFile] = useState(null);
+  const [complaint, setComplaint] =
+    useState("CC001");
+  const [type, setType] = useState("");
+  const [description, setDescription] =
+    useState("");
+  const [uploaded, setUploaded] =
+    useState(false);
+
+  function handleFile(e) {
+    const selectedFile = e.target.files[0];
+
+    if (selectedFile) {
+      setFile(selectedFile);
+      setUploaded(false);
+    }
+  }
+
+  function handleUpload(e) {
+    e.preventDefault();
+
+    if (!file) {
+      alert("Please select an evidence file.");
+      return;
+    }
+
+    if (!type) {
+      alert("Please select evidence type.");
+      return;
+    }
+
+    setUploaded(true);
+  }
+
+  return (
+    <CitizenLayout title="Upload Evidence">
+      <div className="evidence-page">
+        <div className="card evidence-card">
+          <div className="form-heading">
+            <span>📎</span>
+
+            <div>
+              <h2>Upload Evidence</h2>
+
+              <p>
+                Securely submit evidence related to
+                your cybercrime complaint.
+              </p>
+            </div>
+          </div>
+
+          {!uploaded ? (
+            <form onSubmit={handleUpload}>
+              <label>Complaint ID</label>
+
+              <select
+                value={complaint}
+                onChange={(e) =>
+                  setComplaint(e.target.value)
+                }
+              >
+                <option value="CC001">
+                  CC001 - UPI Fraud
+                </option>
+
+                <option value="CC002">
+                  CC002 - Phishing
+                </option>
+
+                <option value="CC003">
+                  CC003 - ATM Fraud
+                </option>
+              </select>
+
+              <label>Evidence Type</label>
+
+              <select
+                value={type}
+                onChange={(e) =>
+                  setType(e.target.value)
+                }
+              >
+                <option value="">
+                  Select evidence type
+                </option>
+
+                <option>
+                  Transaction Screenshot
+                </option>
+
+                <option>
+                  Bank Statement
+                </option>
+
+                <option>
+                  Chat / Message Screenshot
+                </option>
+
+                <option>Email</option>
+
+                <option>Document</option>
+
+                <option>Video</option>
+
+                <option>Other</option>
+              </select>
+
+              <label>Evidence File</label>
+
+              <div className="upload-box">
+                <div className="upload-icon">
+                  📤
+                </div>
+
+                <h3>
+                  Drag & Drop Evidence
+                </h3>
+
+                <p>
+                  or choose a file from your device
+                </p>
+
+                <label className="file-btn">
+                  Choose File
+
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.mp4,.webm"
+                    onChange={handleFile}
+                  />
+                </label>
+
+                {file && (
+                  <div className="selected-file">
+                    <span>📄</span>
+
+                    <div>
+                      <strong>
+                        {file.name}
+                      </strong>
+
+                      <small>
+                        {(
+                          file.size /
+                          1024 /
+                          1024
+                        ).toFixed(2)}{" "}
+                        MB
+                      </small>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <label>
+                Evidence Description
+              </label>
+
+              <textarea
+                rows="5"
+                value={description}
+                onChange={(e) =>
+                  setDescription(
+                    e.target.value
+                  )
+                }
+                placeholder="Briefly describe what this evidence proves..."
+              ></textarea>
+
+              <div className="evidence-note">
+                🔒 Your evidence will be treated as
+                confidential and will be available
+                to authorized investigators.
+              </div>
+
+              <button
+                type="submit"
+                className="primary-btn full"
+              >
+                📤 Upload Evidence
+              </button>
+            </form>
+          ) : (
+            <div className="success-state">
+              <div className="success-icon">
+                ✓
+              </div>
+
+              <h2>Evidence Submitted</h2>
+
+              <p>
+                Your evidence has been submitted
+                successfully.
+              </p>
+
+              <div className="evidence-result">
+                <div>
+                  <span>Evidence ID</span>
+                  <strong>
+                    EV-2026-00124
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Complaint</span>
+                  <strong>{complaint}</strong>
+                </div>
+
+                <div>
+                  <span>File</span>
+                  <strong>{file?.name}</strong>
+                </div>
+
+                <div>
+                  <span>Status</span>
+                  <strong className="green-text">
+                    Submitted
+                  </strong>
+                </div>
+              </div>
+
+              <button
+                className="secondary-btn"
+                onClick={() => {
+                  setUploaded(false);
+                  setFile(null);
+                  setType("");
+                  setDescription("");
+                }}
+              >
+                Upload Another Evidence
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </CitizenLayout>
+  );
+}
+
+/* =====================================================
+   CITIZEN COMPLAINTS
+===================================================== */
+
+function CitizenComplaintTable() {
+  return (
+    <div className="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Complaint ID</th>
+            <th>Category</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Evidence</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr>
+            <td>
+              <strong>CC001</strong>
+            </td>
+
+            <td>UPI Fraud</td>
+
+            <td>25 Aug 2026</td>
+
+            <td>
+              <span className="badge pending">
+                Under Investigation
+              </span>
+            </td>
+
+            <td>📎 3 files</td>
+          </tr>
+
+          <tr>
+            <td>
+              <strong>CC002</strong>
+            </td>
+
+            <td>Phishing</td>
+
+            <td>22 Aug 2026</td>
+
+            <td>
+              <span className="badge success">
+                Resolved
+              </span>
+            </td>
+
+            <td>📎 2 files</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MyComplaints() {
+  return (
+    <CitizenLayout title="My Complaints">
+      <div className="page-toolbar">
+        <div>
+          <h2>My Complaints</h2>
+
+          <p>
+            View all complaints submitted by you.
+          </p>
+        </div>
+
+        <Link
+          to="/report-cybercrime"
+          className="primary-btn"
+        >
+          + New Complaint
+        </Link>
+      </div>
+
+      <div className="card">
+        <CitizenComplaintTable />
+      </div>
+    </CitizenLayout>
+  );
+}
+
+/* =====================================================
+   TRACK COMPLAINT
+===================================================== */
+
+function TrackComplaint() {
+  const [id, setId] = useState("");
+  const [result, setResult] =
+    useState(null);
+
+  function track(e) {
+    e.preventDefault();
+
+    if (!id.trim()) {
+      alert("Enter Complaint ID.");
+      return;
+    }
+
+    setResult({
+      id: id.toUpperCase(),
+      status: "Under Investigation",
+    });
+  }
+
+  return (
+    <CitizenLayout title="Track Complaint">
+      <div className="track-page">
+        <div className="card track-card">
+          <div className="form-heading">
+            <span>🔍</span>
+
+            <div>
+              <h2>Track Complaint</h2>
+
+              <p>
+                Enter your complaint ID to check
+                the latest status.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={track}>
+            <label>Complaint ID</label>
+
+            <input
+              placeholder="Example: CC001"
+              value={id}
+              onChange={(e) =>
+                setId(e.target.value)
+              }
+            />
+
+            <button className="primary-btn full">
+              🔍 Track Complaint
+            </button>
+          </form>
+
+          {result && (
+            <div className="tracking-result">
+              <h3>Complaint Found</h3>
+
+              <div className="tracking-step completed">
+                <span>✓</span>
+                <div>
+                  <strong>Complaint Submitted</strong>
+                  <small>Completed</small>
+                </div>
+              </div>
+
+              <div className="tracking-line"></div>
+
+              <div className="tracking-step completed">
+                <span>✓</span>
+                <div>
+                  <strong>Evidence Reviewed</strong>
+                  <small>Completed</small>
+                </div>
+              </div>
+
+              <div className="tracking-line"></div>
+
+              <div className="tracking-step current">
+                <span>●</span>
+                <div>
+                  <strong>
+                    Under Investigation
+                  </strong>
+                  <small>
+                    Current Status
+                  </small>
+                </div>
+              </div>
+
+              <div className="tracking-line"></div>
+
+              <div className="tracking-step">
+                <span>○</span>
+                <div>
+                  <strong>Resolved</strong>
+                  <small>Pending</small>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </CitizenLayout>
+  );
+}
+
+/* =====================================================
+   CITIZEN ALERTS
+===================================================== */
+
+function CitizenAlerts() {
+  return (
+    <CitizenLayout title="Cyber Safety Alerts">
+      <div className="page-toolbar">
+        <div>
+          <h2>Cyber Safety Alerts</h2>
+
+          <p>
+            Important alerts and safety information.
+          </p>
+        </div>
+      </div>
+
+      <div className="citizen-alert-grid">
+        <div className="safety-alert danger">
+          <span>🚨</span>
+
+          <div>
+            <h3>UPI Fraud Warning</h3>
+
+            <p>
+              Never share your UPI PIN or OTP with
+              anyone claiming to be a bank official.
+            </p>
+
+            <small>Today</small>
+          </div>
+        </div>
+
+        <div className="safety-alert warning">
+          <span>⚠️</span>
+
+          <div>
+            <h3>Phishing Alert</h3>
+
+            <p>
+              Avoid clicking suspicious links
+              received through SMS or email.
+            </p>
+
+            <small>Yesterday</small>
+          </div>
+        </div>
+
+        <div className="safety-alert safe">
+          <span>🛡️</span>
+
+          <div>
+            <h3>Stay Safe Online</h3>
+
+            <p>
+              Enable two-factor authentication on
+              important accounts.
+            </p>
+
+            <small>25 Aug 2026</small>
+          </div>
+        </div>
+      </div>
+    </CitizenLayout>
+  );
+}
+
+/* =====================================================
+   CITIZEN PROFILE
+===================================================== */
+
+function CitizenProfile() {
+  const [profile, setProfile] = useState(() => {
+    try {
+      const saved = localStorage.getItem("cybex-citizen-profile");
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return {
+      id: "CIT-10245",
+      fullName: "",
+      email: "",
+      phone: "",
+      city: "",
+      address: "",
+      emergencyContact: "",
+    };
+  });
+
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  function handleChange(field, value) {
+    setProfile((prev) => ({ ...prev, [field]: value }));
+    setSavedSuccess(false);
+  }
+
+  function handleSave(e) {
+    e.preventDefault();
+    try {
+      localStorage.setItem("cybex-citizen-profile", JSON.stringify(profile));
+    } catch {
+      // ignore
+    }
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 4000);
+  }
+
+  return (
+    <CitizenLayout title="My Profile">
+      <div className="profile-page">
+        <div className="card">
+          <div className="profile-large">
+            <div className="avatar large">
+              {profile.fullName.trim()
+                ? profile.fullName
+                    .trim()
+                    .split(" ")
+                    .filter(Boolean)
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()
+                : "CU"}
+            </div>
+
+            <div>
+              <h2>{profile.fullName.trim() || "Citizen User"}</h2>
+              <p>Registered Citizen &bull; ID: {profile.id}</p>
+            </div>
+          </div>
+
+          {savedSuccess && (
+            <div className="success-message" style={{ marginBottom: "18px" }}>
+              ✓ Profile information updated and saved successfully!
+            </div>
+          )}
+
+          <form onSubmit={handleSave}>
+            <div className="form-two-column">
+              <div>
+                <label>Citizen ID (System ID)</label>
+                <input
+                  value={profile.id}
+                  readOnly
+                  disabled
+                  placeholder="CIT-10245"
+                  style={{ opacity: 0.75, cursor: "not-allowed" }}
+                />
+              </div>
+
+              <div>
+                <label>Full Name</label>
+                <input
+                  type="text"
+                  value={profile.fullName}
+                  onChange={(e) => handleChange("fullName", e.target.value)}
+                  placeholder="e.g. Satyendra Sharma"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-two-column">
+              <div>
+                <label>Email Address</label>
+                <input
+                  type="email"
+                  value={profile.email}
+                  onChange={(e) => handleChange("email", e.target.value)}
+                  placeholder="e.g. citizen@example.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label>Mobile Number</label>
+                <input
+                  type="tel"
+                  value={profile.phone}
+                  onChange={(e) => handleChange("phone", e.target.value)}
+                  placeholder="e.g. +91 98765 43210"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-two-column">
+              <div>
+                <label>City / Location</label>
+                <input
+                  type="text"
+                  value={profile.city}
+                  onChange={(e) => handleChange("city", e.target.value)}
+                  placeholder="e.g. Mumbai, Maharashtra"
+                />
+              </div>
+
+              <div>
+                <label>Emergency Contact</label>
+                <input
+                  type="tel"
+                  value={profile.emergencyContact}
+                  onChange={(e) => handleChange("emergencyContact", e.target.value)}
+                  placeholder="e.g. +91 91234 56789"
+                />
+              </div>
+            </div>
+
+            <label>Residential Address</label>
+            <input
+              type="text"
+              value={profile.address}
+              onChange={(e) => handleChange("address", e.target.value)}
+              placeholder="e.g. Flat 402, Sea View Apartments, Andheri West"
+            />
+
+            <div style={{ marginTop: "22px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              <button type="submit" className="primary-btn">
+                💾 Save &amp; Update Profile
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => {
+                  const resetState = {
+                    id: "CIT-10245",
+                    fullName: "",
+                    email: "",
+                    phone: "",
+                    city: "",
+                    address: "",
+                    emergencyContact: "",
+                  };
+                  setProfile(resetState);
+                  try {
+                    localStorage.removeItem("cybex-citizen-profile");
+                  } catch {}
+                  setSavedSuccess(false);
+                }}
+              >
+                Clear Form
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </CitizenLayout>
+  );
+}
+
+/* =====================================================
+   BANK SIDEBAR
+===================================================== */
+
+function BankSidebar() {
+  const location = useLocation();
+
+  const menu = [
+    {
+      path: "/bank-dashboard",
+      icon: "🏠",
+      name: "Overview",
+    },
+    {
+      path: "/bank-risk-alerts",
+      icon: "🚨",
+      name: "Risk Alerts",
+    },
+    {
+      path: "/suspicious-transactions",
+      icon: "💳",
+      name: "Suspicious Transactions",
+    },
+    {
+      path: "/atm-risk",
+      icon: "🏧",
+      name: "ATM / Withdrawal Risk",
+    },
+    {
+      path: "/fund-blocking",
+      icon: "🔒",
+      name: "Fund Blocking",
+    },
+    {
+      path: "/bank-analytics",
+      icon: "📊",
+      name: "Analytics",
+    },
+    {
+      path: "/bank-reports",
+      icon: "📑",
+      name: "Reports",
+    },
+    {
+      path: "/bank-settings",
+      icon: "⚙️",
+      name: "Settings",
+    },
+  ];
+
+  return (
+    <aside className="sidebar bank-sidebar">
+      <div className="logo">
+        <div className="logo-icon">🛡️</div>
+
+        <div>
+          <h2>CybeX</h2>
+          <span>Bank Portal</span>
+        </div>
+      </div>
+
+      <nav>
+        {menu.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={
+              location.pathname === item.path
+                ? "menu-item active"
+                : "menu-item"
+            }
+          >
+            <span>{item.icon}</span>
+            {item.name}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="sidebar-bottom">
+        <div className="security-status">
+          <span className="status-dot"></span>
+          Secure Banking Portal
+        </div>
+
+        <Link to="/" className="logout">
+          🚪 Logout
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
+function BankLayout({ children, title }) {
+  return (
+    <div className="app-layout">
+      <BankSidebar />
+
+      <main className="main-content">
+        <Header title={title} />
+
+        <div className="page-content page-enter">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* =====================================================
+   BANK DASHBOARD
+===================================================== */
+
+function BankDashboard() {
+  return (
+    <BankLayout title="Bank Overview">
+      <div className="bank-welcome">
+        <div>
+          <span>Welcome</span>
+
+          <h2>ABC Bank - Cyber Fraud Portal</h2>
+
+          <p>
+            Monitor cyber fraud risks, suspicious
+            transactions and withdrawal alerts.
+          </p>
+        </div>
+
+        <div className="bank-icon">🏦</div>
+      </div>
+
+      <div className="stats-grid">
+        <StatCard
+          title="Risk Alerts"
+          value="28"
+          change="Today"
+          icon="🚨"
+        />
+
+        <StatCard
+          title="Suspicious Transactions"
+          value="146"
+          change="+8.4%"
+          icon="💳"
+        />
+
+        <StatCard
+          title="Funds Blocked"
+          value="₹18.6L"
+          change="This Month"
+          icon="🔒"
+        />
+
+        <StatCard
+          title="ATMs Under Watch"
+          value="34"
+          change="Active"
+          icon="🏧"
+        />
+      </div>
+
+      <div className="dashboard-grid">
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h3>High Risk Locations</h3>
+              <p>
+                Locations received from intelligence
+                system
+              </p>
+            </div>
+          </div>
+
+          <BankRiskRow
+            location="Andheri, Mumbai"
+            score="91%"
+          />
+
+          <BankRiskRow
+            location="South Mumbai"
+            score="87%"
+          />
+
+          <BankRiskRow
+            location="Bandra, Mumbai"
+            score="74%"
+          />
+
+          <BankRiskRow
+            location="Dadar, Mumbai"
+            score="68%"
+          />
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h3>Quick Actions</h3>
+              <p>Common banking operations</p>
+            </div>
+          </div>
+
+          <div className="bank-quick-actions">
+            <Link to="/bank-risk-alerts">
+              🚨 Review Alerts
+            </Link>
+
+            <Link to="/suspicious-transactions">
+              💳 Review Transactions
+            </Link>
+
+            <Link to="/fund-blocking">
+              🔒 Block Funds
+            </Link>
+
+            <Link to="/atm-risk">
+              🏧 Check ATM Risk
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h3>Recent Suspicious Transactions</h3>
+            <p>Requires bank review</p>
+          </div>
+
+          <Link
+            to="/suspicious-transactions"
+            className="text-link"
+          >
+            View All →
+          </Link>
+        </div>
+
+        <BankTransactionTable />
+      </div>
+    </BankLayout>
+  );
+}
+
+function BankRiskRow({
+  location,
+  score,
+}) {
+  return (
+    <div className="bank-risk-row">
+      <div>
+        <strong>📍 {location}</strong>
+
+        <span>
+          Predicted withdrawal hotspot
+        </span>
+      </div>
+
+      <strong className="red-text">
+        {score}
+      </strong>
+    </div>
+  );
+}
+
+/* =====================================================
+   BANK RISK ALERTS
+===================================================== */
+
+function BankRiskAlerts() {
+  return (
+    <BankLayout title="Risk Alerts">
+      <div className="alert-summary">
+        <div className="alert-summary-card danger-bg">
+          <strong>12</strong>
+          <span>Critical Alerts</span>
+        </div>
+
+        <div className="alert-summary-card warning-bg">
+          <strong>16</strong>
+          <span>Medium Alerts</span>
+        </div>
+
+        <div className="alert-summary-card safe-bg">
+          <strong>45</strong>
+          <span>Resolved</span>
+        </div>
+      </div>
+
+      <div className="card">
+        {alerts.map((alert) => (
+          <div
+            className="bank-alert-row"
+            key={alert.id}
+          >
+            <div className="bank-alert-icon">
+              🚨
+            </div>
+
+            <div>
+              <strong>
+                {alert.location}
+              </strong>
+
+              <p>
+                Predicted withdrawal risk:
+                <b> {alert.score}%</b>
+              </p>
+
+              <small>
+                Expected: {alert.time}
+              </small>
+            </div>
+
+            <button className="small-btn">
+              Review
+            </button>
+          </div>
+        ))}
+      </div>
+    </BankLayout>
+  );
+}
+
+/* =====================================================
+   BANK TRANSACTIONS DATA & COMPONENTS
+===================================================== */
+
+const defaultBankTransactions = [
+  {
+    id: "TXN-82451",
+    accountNo: "AC-78945612",
+    beneficiary: "Rajesh S. (High Velocity)",
+    amount: "₹95,000",
+    rawAmount: 95000,
+    location: "Andheri ATM-01, Mumbai",
+    city: "Mumbai",
+    risk: "92%",
+    riskLevel: "Critical",
+    status: "Review Required",
+    pattern: "Rapid UPI Burst & Layering",
+    timestamp: "28 Aug 2026, 14:10",
+    ipAddress: "103.212.45.89 (High Risk Proxy)",
+    ifsc: "SBIN0001245",
+    complaintRef: "CC001 (Cyber Crime Unit)",
+  },
+  {
+    id: "TXN-82452",
+    accountNo: "AC-34567890",
+    beneficiary: "Vikram K. (Layered Node)",
+    amount: "₹48,500",
+    rawAmount: 48500,
+    location: "Bandra ATM-09, Mumbai",
+    city: "Mumbai",
+    risk: "74%",
+    riskLevel: "High",
+    status: "Monitoring",
+    pattern: "Consecutive Zero-Balance Drainage",
+    timestamp: "28 Aug 2026, 13:45",
+    ipAddress: "49.36.12.102 (Mobile Broadband)",
+    ifsc: "HDFC0000889",
+    complaintRef: "CC002 (Phishing APK)",
+  },
+  {
+    id: "TXN-82453",
+    accountNo: "AC-90123456",
+    beneficiary: "Deepak V. (ATM Extraction)",
+    amount: "₹1,20,000",
+    rawAmount: 120000,
+    location: "Fort Branch, Mumbai",
+    city: "Mumbai",
+    risk: "89%",
+    riskLevel: "Critical",
+    status: "Review Required",
+    pattern: "Cloned Debit Card Cash Out",
+    timestamp: "28 Aug 2026, 13:12",
+    ipAddress: "115.240.88.19 (Physical ATM Terminal)",
+    ifsc: "ICIC0000214",
+    complaintRef: "CC003 (ATM Skimming)",
+  },
+  {
+    id: "TXN-82454",
+    accountNo: "AC-56789012",
+    beneficiary: "Sneha M. (SIM Swap Receiver)",
+    amount: "₹2,50,000",
+    rawAmount: 250000,
+    location: "CP ATM-04, Delhi",
+    city: "Delhi",
+    risk: "95%",
+    riskLevel: "Critical",
+    status: "Review Required",
+    pattern: "SIM Swap & RTGS Immediate Push",
+    timestamp: "28 Aug 2026, 12:30",
+    ipAddress: "182.73.110.45 (Tor Exit Node)",
+    ifsc: "PUNB0004512",
+    complaintRef: "CC004 (SIM Swap Syndicate)",
+  },
+  {
+    id: "TXN-82455",
+    accountNo: "AC-67890123",
+    beneficiary: "Amit P. (Cross-Border Transfer)",
+    amount: "₹35,000",
+    rawAmount: 35000,
+    location: "FC Road Kiosk, Pune",
+    city: "Pune",
+    risk: "68%",
+    riskLevel: "Medium",
+    status: "Monitoring",
+    pattern: "Multiple Micro-Deposits via UPI",
+    timestamp: "28 Aug 2026, 11:50",
+    ipAddress: "106.51.78.23 (Residential IP)",
+    ifsc: "UTIB0000987",
+    complaintRef: "CC005 (Lottery Scam)",
+  },
+  {
+    id: "TXN-82456",
+    accountNo: "AC-89012345",
+    beneficiary: "Rohit T. (Call Center Beneficiary)",
+    amount: "₹1,85,000",
+    rawAmount: 185000,
+    location: "MG Road Metro ATM, Bangalore",
+    city: "Bangalore",
+    risk: "86%",
+    riskLevel: "Critical",
+    status: "Frozen / Lien Active",
+    pattern: "Call Center Scam Layering",
+    timestamp: "28 Aug 2026, 10:15",
+    ipAddress: "122.166.45.90 (Bangalore Leased Line)",
+    ifsc: "KKBK0000123",
+    complaintRef: "CC006 (Tech Support Scam)",
+  },
+  {
+    id: "TXN-82457",
+    accountNo: "AC-12349876",
+    beneficiary: "Sunil G. (Crypto Gateway Mule)",
+    amount: "₹72,000",
+    rawAmount: 72000,
+    location: "Andheri West Branch, Mumbai",
+    city: "Mumbai",
+    risk: "81%",
+    riskLevel: "High",
+    status: "Escalated to LEA",
+    pattern: "P2P Crypto Instant Liquidation",
+    timestamp: "28 Aug 2026, 09:40",
+    ipAddress: "157.48.99.12 (VPN Gateway)",
+    ifsc: "YESB0000456",
+    complaintRef: "CC007 (Crypto Fraud)",
+  },
+  {
+    id: "TXN-82458",
+    accountNo: "AC-45671234",
+    beneficiary: "Pooja R. (Corporate Payroll)",
+    amount: "₹28,000",
+    rawAmount: 28000,
+    location: "Dadar TT Circle, Mumbai",
+    city: "Mumbai",
+    risk: "32%",
+    riskLevel: "Medium",
+    status: "Cleared Normal",
+    pattern: "Regular Payroll Disbursal",
+    timestamp: "28 Aug 2026, 08:25",
+    ipAddress: "114.143.12.80 (Corporate Leased)",
+    ifsc: "SBIN0000345",
+    complaintRef: "None (False Positive)",
+  },
+];
+
+function BankTransactionTable({
+  transactions,
+  onReview,
+  onQuickFreeze,
+  onEscalate,
+}) {
+  const data = transactions || defaultBankTransactions.slice(0, 5);
+
+  function getStatusBadge(status) {
+    if (status === "Review Required") return "badge danger";
+    if (status === "Frozen / Lien Active") return "badge success";
+    if (status === "Escalated to LEA") return "badge danger";
+    if (status === "Monitoring") return "badge pending";
+    return "badge success";
+  }
+
+  function getRiskBadge(riskLevel) {
+    if (riskLevel === "Critical") return "badge danger";
+    if (riskLevel === "High") return "badge pending";
+    return "badge success";
+  }
+
+  return (
+    <div className="table-container" style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            <th>Transaction &amp; A/C</th>
+            <th>Beneficiary / Pattern</th>
+            <th>Amount</th>
+            <th>Location</th>
+            <th>Risk Score</th>
+            <th>Status</th>
+            <th style={{ textAlign: "right" }}>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {data.length === 0 ? (
+            <tr>
+              <td colSpan="7" style={{ textAlign: "center", padding: "30px", color: "#8ca5bd" }}>
+                🔍 No transactions match the selected filter criteria.
+              </td>
+            </tr>
+          ) : (
+            data.map((txn) => (
+              <tr key={txn.id}>
+                <td>
+                  <strong style={{ color: "var(--cyan)", fontFamily: "'JetBrains Mono', monospace" }}>
+                    {txn.id}
+                  </strong>
+                  <small style={{ display: "block", color: "#8da6be", fontSize: "11px" }}>
+                    {txn.accountNo}
+                  </small>
+                </td>
+
+                <td>
+                  <strong>{txn.beneficiary}</strong>
+                  <small style={{ display: "block", color: "#8ca5bd", fontSize: "11px" }}>
+                    {txn.pattern}
+                  </small>
+                </td>
+
+                <td>
+                  <strong style={{ fontSize: "13.5px" }}>{txn.amount}</strong>
+                  <small style={{ display: "block", color: "#748fa8", fontSize: "10.5px" }}>
+                    {txn.timestamp.split(",")[1]}
+                  </small>
+                </td>
+
+                <td>
+                  <span>{txn.location}</span>
+                </td>
+
+                <td>
+                  <span className={getRiskBadge(txn.riskLevel)}>
+                    {txn.risk}
+                  </span>
+                </td>
+
+                <td>
+                  <span className={getStatusBadge(txn.status)}>
+                    {txn.status}
+                  </span>
+                </td>
+
+                <td style={{ textAlign: "right" }}>
+                  <div style={{ display: "inline-flex", gap: "6px", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      className="small-btn"
+                      onClick={() => onReview && onReview(txn)}
+                      title="Review full transaction details"
+                    >
+                      👁️ Review
+                    </button>
+                    {txn.status !== "Frozen / Lien Active" && (
+                      <button
+                        type="button"
+                        className="small-btn"
+                        style={{
+                          background: "rgba(255, 77, 103, 0.12)",
+                          borderColor: "rgba(255, 77, 103, 0.3)",
+                          color: "#ff8293",
+                        }}
+                        onClick={() => onQuickFreeze && onQuickFreeze(txn)}
+                        title="Instant Lien Freeze"
+                      >
+                        🔒 Freeze
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* =====================================================
+   BANK SUSPICIOUS TRANSACTIONS PAGE
+===================================================== */
+
+function SuspiciousTransactions() {
+  const [transactions, setTransactions] = useState(() => {
+    try {
+      const saved = localStorage.getItem("cybex-bank-transactions");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return defaultBankTransactions;
+  });
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [riskFilter, setRiskFilter] = useState("All Risk Levels");
+  const [locationFilter, setLocationFilter] = useState("All Locations");
+  const [statusFilter, setStatusFilter] = useState("All Status");
+
+  const [selectedTxn, setSelectedTxn] = useState(null);
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // New Flag Transaction Form State
+  const [flagForm, setFlagForm] = useState({
+    accountNo: "",
+    beneficiary: "",
+    amount: "",
+    location: "Andheri Branch, Mumbai",
+    city: "Mumbai",
+    pattern: "Suspicious Multi-Layered UPI Burst",
+    riskLevel: "Critical",
+  });
+
+  function showToast(msg, type = "success") {
+    setToastMessage({ text: msg, type: type });
+    setTimeout(() => setToastMessage(null), 4500);
+  }
+
+  function saveAndSetTransactions(updated) {
+    setTransactions(updated);
+    try {
+      localStorage.setItem("cybex-bank-transactions", JSON.stringify(updated));
+    } catch {}
+  }
+
+  // Filtered dataset
+  const filteredTransactions = transactions.filter((txn) => {
+    const q = searchTerm.toLowerCase().trim();
+    const matchQuery =
+      !q ||
+      txn.id.toLowerCase().includes(q) ||
+      txn.accountNo.toLowerCase().includes(q) ||
+      txn.beneficiary.toLowerCase().includes(q) ||
+      txn.location.toLowerCase().includes(q) ||
+      txn.pattern.toLowerCase().includes(q);
+
+    const matchRisk =
+      riskFilter === "All Risk Levels" ||
+      txn.riskLevel === riskFilter ||
+      (riskFilter === "Critical" && parseInt(txn.risk) >= 85);
+
+    const matchLocation =
+      locationFilter === "All Locations" ||
+      txn.city === locationFilter ||
+      txn.location.toLowerCase().includes(locationFilter.toLowerCase());
+
+    const matchStatus =
+      statusFilter === "All Status" || txn.status === statusFilter;
+
+    return matchQuery && matchRisk && matchLocation && matchStatus;
+  });
+
+  // Action handlers
+  function handleFreezeAccount(txn) {
+    const updated = transactions.map((t) =>
+      t.id === txn.id ? { ...t, status: "Frozen / Lien Active" } : t
+    );
+    saveAndSetTransactions(updated);
+    if (selectedTxn && selectedTxn.id === txn.id) {
+      setSelectedTxn((prev) => ({ ...prev, status: "Frozen / Lien Active" }));
+    }
+    showToast(
+      `🔒 Emergency Lien placed on A/C ${txn.accountNo} (${txn.amount}). Outward debit frozen.`
+    );
+  }
+
+  function handleEscalateLEA(txn) {
+    const updated = transactions.map((t) =>
+      t.id === txn.id ? { ...t, status: "Escalated to LEA" } : t
+    );
+    saveAndSetTransactions(updated);
+    if (selectedTxn && selectedTxn.id === txn.id) {
+      setSelectedTxn((prev) => ({ ...prev, status: "Escalated to LEA" }));
+    }
+    showToast(
+      `🚨 Incident ${txn.id} escalated to State Cyber Crime Police Station for FIR linking.`
+    );
+  }
+
+  function handleSetMonitoring(txn) {
+    const updated = transactions.map((t) =>
+      t.id === txn.id ? { ...t, status: "Monitoring" } : t
+    );
+    saveAndSetTransactions(updated);
+    if (selectedTxn && selectedTxn.id === txn.id) {
+      setSelectedTxn((prev) => ({ ...prev, status: "Monitoring" }));
+    }
+    showToast(`👁️ A/C ${txn.accountNo} placed under 24/7 AI velocity monitoring.`);
+  }
+
+  function handleMarkCleared(txn) {
+    const updated = transactions.map((t) =>
+      t.id === txn.id ? { ...t, status: "Cleared Normal" } : t
+    );
+    saveAndSetTransactions(updated);
+    if (selectedTxn && selectedTxn.id === txn.id) {
+      setSelectedTxn((prev) => ({ ...prev, status: "Cleared Normal" }));
+    }
+    showToast(`✓ Transaction ${txn.id} cleared as legitimate / false positive.`);
+  }
+
+  function handleBulkFreezeCritical() {
+    const criticalCount = filteredTransactions.filter(
+      (t) => t.status === "Review Required" && (t.riskLevel === "Critical" || parseInt(t.risk) >= 80)
+    ).length;
+
+    if (criticalCount === 0) {
+      showToast("No pending critical transactions requiring bulk freeze in current view.", "info");
+      return;
+    }
+
+    const updated = transactions.map((t) => {
+      if (
+        filteredTransactions.some((ft) => ft.id === t.id) &&
+        t.status === "Review Required" &&
+        (t.riskLevel === "Critical" || parseInt(t.risk) >= 80)
+      ) {
+        return { ...t, status: "Frozen / Lien Active" };
+      }
+      return t;
+    });
+
+    saveAndSetTransactions(updated);
+    showToast(`⚡ Bulk freeze successful! Placed emergency lien on ${criticalCount} high-risk accounts.`);
+  }
+
+  function handleExportAuditReport() {
+    const totalVol = filteredTransactions.reduce(
+      (acc, t) => acc + (t.rawAmount || 0),
+      0
+    );
+    alert(
+      `[AUDIT EXPORT READY]\n\nExported: ${filteredTransactions.length} Suspicious Transactions\nTotal Monitored Volume: ₹${totalVol.toLocaleString("en-IN")}\nFormat: Encrypted Banking STR & Audit PDF\nClearance: Banking Nodal Authority`
+    );
+    showToast(`📥 Exported audit report for ${filteredTransactions.length} transactions.`);
+  }
+
+  function handleCreateFlaggedTxn(e) {
+    e.preventDefault();
+    const randNum = Math.floor(10000 + Math.random() * 90000);
+    const newTxn = {
+      id: `TXN-${randNum}`,
+      accountNo: flagForm.accountNo.trim() || `AC-${Math.floor(10000000 + Math.random() * 90000000)}`,
+      beneficiary: flagForm.beneficiary.trim() || "Manual Flagged Account",
+      amount: flagForm.amount.startsWith("₹") ? flagForm.amount : `₹${flagForm.amount}`,
+      rawAmount: parseInt(flagForm.amount.replace(/[^0-9]/g, "")) || 50000,
+      location: flagForm.location,
+      city: flagForm.city,
+      risk: flagForm.riskLevel === "Critical" ? "91%" : "76%",
+      riskLevel: flagForm.riskLevel,
+      status: "Review Required",
+      pattern: flagForm.pattern,
+      timestamp: new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      ipAddress: "103.44.12.98 (Flagged Subnet)",
+      ifsc: "SBIN0000100",
+      complaintRef: "Manual Flag (Nodal Vigilance)",
+    };
+
+    saveAndSetTransactions([newTxn, ...transactions]);
+    setShowFlagModal(false);
+    showToast(`⚡ New suspicious transaction ${newTxn.id} flagged and added to review queue!`);
+    setFlagForm({
+      accountNo: "",
+      beneficiary: "",
+      amount: "",
+      location: "Andheri Branch, Mumbai",
+      city: "Mumbai",
+      pattern: "Suspicious Multi-Layered UPI Burst",
+      riskLevel: "Critical",
+    });
+  }
+
+  function handleResetFilters() {
+    setSearchTerm("");
+    setRiskFilter("All Risk Levels");
+    setLocationFilter("All Locations");
+    setStatusFilter("All Status");
+    showToast("Filters reset to default view.");
+  }
+
+  return (
+    <BankLayout title="Suspicious Transactions">
+      <div className="page-toolbar">
+        <div>
+          <h2>Suspicious Transactions Surveillance</h2>
+          <p>
+            Real-time multi-channel fraud telemetry and automated lien enforcement
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={handleBulkFreezeCritical}
+            title="Bulk freeze all pending critical accounts"
+          >
+            ⚡ Bulk Lien Freeze
+          </button>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => setShowFlagModal(true)}
+          >
+            + Flag Transaction
+          </button>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={handleExportAuditReport}
+          >
+            📥 Export Report
+          </button>
+        </div>
+      </div>
+
+      {toastMessage && (
+        <div
+          className="success-message"
+          style={{
+            marginBottom: "18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span>{toastMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "inherit",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Filter Toolbar */}
+      <div className="filter-card">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="🔍 Search by TXN ID, A/C, Beneficiary, Location..."
+        />
+
+        <select
+          value={riskFilter}
+          onChange={(e) => setRiskFilter(e.target.value)}
+        >
+          <option value="All Risk Levels">All Risk Levels</option>
+          <option value="Critical">Critical Threat (&gt;85%)</option>
+          <option value="High">High Threat (70-85%)</option>
+          <option value="Medium">Medium Threat (&lt;70%)</option>
+        </select>
+
+        <select
+          value={locationFilter}
+          onChange={(e) => setLocationFilter(e.target.value)}
+        >
+          <option value="All Locations">All Locations</option>
+          <option value="Mumbai">Mumbai</option>
+          <option value="Delhi">Delhi</option>
+          <option value="Pune">Pune</option>
+          <option value="Bangalore">Bangalore</option>
+        </select>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="All Status">All Status</option>
+          <option value="Review Required">Review Required</option>
+          <option value="Monitoring">Monitoring</option>
+          <option value="Frozen / Lien Active">Frozen / Lien Active</option>
+          <option value="Escalated to LEA">Escalated to LEA</option>
+          <option value="Cleared Normal">Cleared Normal</option>
+        </select>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", fontSize: "12.5px", color: "#8da6be" }}>
+        <span>
+          Showing <strong>{filteredTransactions.length}</strong> of{" "}
+          <strong>{transactions.length}</strong> transactions
+        </span>
+        {(searchTerm || riskFilter !== "All Risk Levels" || locationFilter !== "All Locations" || statusFilter !== "All Status") && (
+          <button
+            type="button"
+            className="small-btn"
+            style={{ padding: "4px 10px", fontSize: "11.5px" }}
+            onClick={handleResetFilters}
+          >
+            Reset Filters ↺
+          </button>
+        )}
+      </div>
+
+      <div className="card">
+        <BankTransactionTable
+          transactions={filteredTransactions}
+          onReview={(txn) => setSelectedTxn(txn)}
+          onQuickFreeze={(txn) => handleFreezeAccount(txn)}
+        />
+      </div>
+
+      {/* Transaction Investigation & Action Modal */}
+      {selectedTxn && (
+        <div
+          className="custom-modal-backdrop"
+          onClick={(e) => {
+            if (e.target.className === "custom-modal-backdrop") {
+              setSelectedTxn(null);
+            }
+          }}
+        >
+          <div className="custom-modal-dialog">
+            <div className="custom-modal-header">
+              <h3>
+                <span>💳</span>
+                Investigation Dossier: {selectedTxn.id}
+              </h3>
+              <button
+                type="button"
+                className="custom-modal-close"
+                onClick={() => setSelectedTxn(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="custom-modal-body">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "14px 16px",
+                  borderRadius: "12px",
+                  background: "rgba(57,215,255,0.04)",
+                  border: "1px solid rgba(57,215,255,0.12)",
+                  marginBottom: "18px",
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: "11px", color: "#8ca5bd", textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>
+                    Total Transaction Value
+                  </span>
+                  <h2 style={{ margin: "4px 0 0", color: "#fff", fontSize: "22px" }}>
+                    {selectedTxn.amount}
+                  </h2>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontSize: "11px", color: "#8ca5bd", textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>
+                    Threat Score
+                  </span>
+                  <div style={{ marginTop: "4px" }}>
+                    <span className={selectedTxn.riskLevel === "Critical" ? "badge danger" : "badge pending"} style={{ fontSize: "13px", padding: "6px 12px" }}>
+                      {selectedTxn.risk} Threat ({selectedTxn.riskLevel})
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="report-grid" style={{ marginTop: 0 }}>
+                <div>
+                  <span>Beneficiary Account</span>
+                  <strong>{selectedTxn.accountNo}</strong>
+                </div>
+                <div>
+                  <span>Account Holder Name</span>
+                  <strong>{selectedTxn.beneficiary}</strong>
+                </div>
+                <div>
+                  <span>IFSC / Branch</span>
+                  <strong>{selectedTxn.ifsc}</strong>
+                </div>
+                <div>
+                  <span>Location / Terminal</span>
+                  <strong>{selectedTxn.location}</strong>
+                </div>
+                <div>
+                  <span>Originating Channel</span>
+                  <strong>{selectedTxn.pattern}</strong>
+                </div>
+                <div>
+                  <span>Timestamp</span>
+                  <strong>{selectedTxn.timestamp}</strong>
+                </div>
+                <div>
+                  <span>Originating IP Address</span>
+                  <strong>{selectedTxn.ipAddress}</strong>
+                </div>
+                <div>
+                  <span>Linked FIR / Complaint</span>
+                  <strong>{selectedTxn.complaintRef}</strong>
+                </div>
+                <div>
+                  <span>Current Enforcement State</span>
+                  <strong style={{ color: selectedTxn.status.includes("Frozen") ? "var(--green)" : "var(--cyan)" }}>
+                    {selectedTxn.status}
+                  </strong>
+                </div>
+              </div>
+
+              <div style={{ marginTop: "20px", padding: "14px 16px", borderRadius: "10px", background: "rgba(255,77,103,0.06)", border: "1px solid rgba(255,77,103,0.18)" }}>
+                <strong style={{ display: "block", color: "#ff8798", fontSize: "12px", fontFamily: "'JetBrains Mono', monospace", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: "4px" }}>
+                  🚨 Automated Fraud Indicator Rationale
+                </strong>
+                <p style={{ margin: 0, color: "#cbd5e1", fontSize: "12.5px", lineHeight: "1.5" }}>
+                  The AI surveillance model detected rapid multi-burst velocity with zero lingering balance retention. Pattern matches known mule syndicate cash-out signatures identified in active cybercrime complaint {selectedTxn.complaintRef}.
+                </p>
+              </div>
+
+              {/* Action Buttons Inside Modal */}
+              <div style={{ marginTop: "24px", display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {selectedTxn.status !== "Frozen / Lien Active" && (
+                  <button
+                    type="button"
+                    className="danger-btn"
+                    style={{ padding: "10px 16px", fontSize: "13px" }}
+                    onClick={() => handleFreezeAccount(selectedTxn)}
+                  >
+                    🔒 Freeze Account &amp; Place Lien
+                  </button>
+                )}
+
+                {selectedTxn.status !== "Escalated to LEA" && (
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    style={{ padding: "10px 16px", fontSize: "13px" }}
+                    onClick={() => handleEscalateLEA(selectedTxn)}
+                  >
+                    🚨 Escalate to Police / LEA
+                  </button>
+                )}
+
+                {selectedTxn.status !== "Monitoring" && (
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    style={{ padding: "10px 16px", fontSize: "13px" }}
+                    onClick={() => handleSetMonitoring(selectedTxn)}
+                  >
+                    👁️ Put on Monitoring
+                  </button>
+                )}
+
+                {selectedTxn.status !== "Cleared Normal" && (
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    style={{ padding: "10px 16px", fontSize: "13px" }}
+                    onClick={() => handleMarkCleared(selectedTxn)}
+                  >
+                    ✓ Mark Cleared
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  style={{ padding: "10px 16px", fontSize: "13px" }}
+                  onClick={() => {
+                    alert(`[STR DOSSIER DOWNLOADED] STR package for ${selectedTxn.id} (A/C ${selectedTxn.accountNo}) prepared for FIU-IND submission.`);
+                    showToast(`📥 STR package downloaded for ${selectedTxn.id}.`);
+                  }}
+                >
+                  📥 Export STR Dossier
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Flag Transaction Modal */}
+      {showFlagModal && (
+        <div
+          className="custom-modal-backdrop"
+          onClick={(e) => {
+            if (e.target.className === "custom-modal-backdrop") {
+              setShowFlagModal(false);
+            }
+          }}
+        >
+          <div className="custom-modal-dialog">
+            <div className="custom-modal-header">
+              <h3>⚡ Flag New Suspicious Transaction</h3>
+              <button
+                type="button"
+                className="custom-modal-close"
+                onClick={() => setShowFlagModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="custom-modal-body">
+              <form onSubmit={handleCreateFlaggedTxn}>
+                <div className="form-two-column">
+                  <div>
+                    <label>Beneficiary Account Number</label>
+                    <input
+                      type="text"
+                      value={flagForm.accountNo}
+                      onChange={(e) => setFlagForm((prev) => ({ ...prev, accountNo: e.target.value }))}
+                      placeholder="e.g. AC-78941234"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label>Beneficiary Name</label>
+                    <input
+                      type="text"
+                      value={flagForm.beneficiary}
+                      onChange={(e) => setFlagForm((prev) => ({ ...prev, beneficiary: e.target.value }))}
+                      placeholder="e.g. Amit Kumar"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-two-column">
+                  <div>
+                    <label>Transaction Amount (₹)</label>
+                    <input
+                      type="text"
+                      value={flagForm.amount}
+                      onChange={(e) => setFlagForm((prev) => ({ ...prev, amount: e.target.value }))}
+                      placeholder="e.g. 75,000"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label>Risk Level</label>
+                    <select
+                      value={flagForm.riskLevel}
+                      onChange={(e) => setFlagForm((prev) => ({ ...prev, riskLevel: e.target.value }))}
+                    >
+                      <option value="Critical">Critical (&gt;85%)</option>
+                      <option value="High">High (70-85%)</option>
+                      <option value="Medium">Medium (&lt;70%)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-two-column">
+                  <div>
+                    <label>Branch / ATM Location</label>
+                    <input
+                      type="text"
+                      value={flagForm.location}
+                      onChange={(e) => setFlagForm((prev) => ({ ...prev, location: e.target.value }))}
+                      placeholder="e.g. Andheri Branch, Mumbai"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label>City Region</label>
+                    <select
+                      value={flagForm.city}
+                      onChange={(e) => setFlagForm((prev) => ({ ...prev, city: e.target.value }))}
+                    >
+                      <option value="Mumbai">Mumbai</option>
+                      <option value="Delhi">Delhi</option>
+                      <option value="Pune">Pune</option>
+                      <option value="Bangalore">Bangalore</option>
+                    </select>
+                  </div>
+                </div>
+
+                <label>Suspicious Pattern / Rationale</label>
+                <input
+                  type="text"
+                  value={flagForm.pattern}
+                  onChange={(e) => setFlagForm((prev) => ({ ...prev, pattern: e.target.value }))}
+                  placeholder="e.g. Rapid UPI Burst from high-risk subnet"
+                  required
+                />
+
+                <div style={{ marginTop: "22px", display: "flex", justifyContent: "flex-end", gap: "12px" }}>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => setShowFlagModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="primary-btn">
+                    ⚡ Flag &amp; Queue for Review
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </BankLayout>
+  );
+}
+
+/* =====================================================
+   BANK ATM RISK
+===================================================== */
+
+function AtmRisk() {
+  return (
+    <BankLayout title="ATM / Withdrawal Risk">
+      <div className="stats-grid">
+        <StatCard
+          title="High Risk ATMs"
+          value="12"
+          change="Immediate Review"
+          icon="🔴"
+        />
+
+        <StatCard
+          title="Medium Risk ATMs"
+          value="22"
+          change="Monitoring"
+          icon="🟠"
+        />
+
+        <StatCard
+          title="Normal ATMs"
+          value="184"
+          change="Safe"
+          icon="🟢"
+        />
+
+        <StatCard
+          title="Total ATMs"
+          value="218"
+          change="Network"
+          icon="🏧"
+        />
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h3>ATM Risk Monitoring</h3>
+
+            <p>
+              Predicted withdrawal risk by ATM
+              location.
+            </p>
+          </div>
+        </div>
+
+        <div className="atm-grid">
+          <div className="atm-card high">
+            <span>🏧</span>
+            <strong>Andheri ATM-01</strong>
+            <b>92% Risk</b>
+          </div>
+
+          <div className="atm-card high">
+            <span>🏧</span>
+            <strong>South Mumbai ATM-04</strong>
+            <b>88% Risk</b>
+          </div>
+
+          <div className="atm-card medium">
+            <span>🏧</span>
+            <strong>Bandra ATM-09</strong>
+            <b>71% Risk</b>
+          </div>
+
+          <div className="atm-card safe">
+            <span>🏧</span>
+            <strong>Dadar ATM-03</strong>
+            <b>28% Risk</b>
+          </div>
+        </div>
+      </div>
+    </BankLayout>
+  );
+}
+
+/* =====================================================
+   BANK FUND BLOCKING
+===================================================== */
+
+function FundBlocking() {
+  const [blocked, setBlocked] =
+    useState(false);
+
+  return (
+    <BankLayout title="Fund Blocking">
+      <div className="card fund-block-card">
+        <div className="form-heading">
+          <span>🔒</span>
+
+          <div>
+            <h2>Emergency Fund Blocking</h2>
+
+            <p>
+              Review and initiate blocking of
+              suspicious funds.
+            </p>
+          </div>
+        </div>
+
+        <label>Transaction ID</label>
+
+        <input
+          placeholder="Enter transaction ID"
+          defaultValue="TXN-82451"
+        />
+
+        <label>Amount</label>
+
+        <input
+          placeholder="Transaction amount"
+          defaultValue="₹95,000"
+        />
+
+        <label>Reason</label>
+
+        <textarea
+          rows="4"
+          placeholder="Enter reason for blocking..."
+        ></textarea>
+
+        <div className="warning-box">
+          ⚠️ This is a demo interface. Actual
+          fund blocking must be securely connected
+          to the bank's authorized systems.
+        </div>
+
+        <button
+          className="danger-btn"
+          onClick={() => setBlocked(true)}
+        >
+          🔒 Initiate Fund Blocking
+        </button>
+
+        {blocked && (
+          <div className="success-message">
+            ✓ Fund blocking request submitted for
+            authorized review.
+          </div>
+        )}
+      </div>
+    </BankLayout>
+  );
+}
+
+/* =====================================================
+   BANK ANALYTICS
+===================================================== */
+
+function BankAnalytics() {
+  return (
+    <BankLayout title="Transaction Analytics">
+      <div className="stats-grid">
+        <StatCard
+          title="Fraud Transactions"
+          value="384"
+          change="+14%"
+          icon="📈"
+        />
+
+        <StatCard
+          title="Blocked Transactions"
+          value="218"
+          change="56.7%"
+          icon="🔒"
+        />
+
+        <StatCard
+          title="Recovered Amount"
+          value="₹12.4L"
+          change="This Month"
+          icon="💰"
+        />
+
+        <StatCard
+          title="Detection Rate"
+          value="89%"
+          change="AI Assisted"
+          icon="🎯"
+        />
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h3>Fraud Category Distribution</h3>
+            <p>Current monitoring period</p>
+          </div>
+        </div>
+
+        <RiskBar
+          name="UPI Fraud"
+          value={42}
+          color="danger"
+        />
+
+        <RiskBar
+          name="ATM Fraud"
+          value={25}
+          color="warning"
+        />
+
+        <RiskBar
+          name="Phishing"
+          value={19}
+          color="medium"
+        />
+
+        <RiskBar
+          name="Other"
+          value={14}
+          color="safe"
+        />
+      </div>
+    </BankLayout>
+  );
+}
+
+const bankReportsData = [
+  {
+    id: "risk-alert",
+    icon: "🚨",
+    title: "Risk Alert & Hotspot Intelligence",
+    description: "Geospatial cash-out surges and predicted ATM threat clusters.",
+    date: "25 Aug 2026",
+    reportId: "BRPT-ALERT-2026-0825",
+    priority: "HIGH PRIORITY",
+    priorityClass: "danger",
+    metrics: [
+      { label: "Active Risk Alerts", value: "18 Triggers" },
+      { label: "Hotspot Vulnerability", value: "Andheri West & BKC" },
+      { label: "Threat Probability", value: "91% Peak" },
+      { label: "Preventive Interventions", value: "12 Nodes Protected" },
+    ],
+    summary:
+      "Automated surveillance flagged rapid cash withdrawal indicators in Western Mumbai commercial corridors between 19:00 - 22:00. 4 ATM nodes were quarantined.",
+    tableData: [
+      { col1: "ATM-MUM-01 (Andheri Link Rd)", col2: "₹18,50,000 Volume", col3: "92% Risk", col4: "Quarantined", badge: "danger" },
+      { col1: "ATM-MUM-04 (Fort Financial Hub)", col2: "₹24,00,000 Volume", col3: "89% Risk", col4: "LEA Alerted", badge: "danger" },
+      { col1: "ATM-MUM-09 (Bandra BKC Complex)", col2: "₹9,20,000 Volume", col3: "71% Risk", col4: "Monitoring", badge: "warning" },
+      { col1: "ATM-MUM-03 (Dadar TT Circle)", col2: "₹4,10,000 Volume", col3: "28% Risk", col4: "Normal", badge: "success" },
+    ],
+    actionPlan:
+      "Deploy patrol verification at flagged ATM clusters. Temporarily throttle per-transaction withdrawal velocity to ₹10,000 during high-risk window.",
+  },
+  {
+    id: "txn-audit",
+    icon: "💳",
+    title: "Suspicious Transaction & Mule Audit",
+    description: "Rapid velocity UPI transfers, mule account chains, and layering patterns.",
+    date: "25 Aug 2026",
+    reportId: "BRPT-TXN-2026-0825",
+    priority: "CRITICAL AUDIT",
+    priorityClass: "danger",
+    metrics: [
+      { label: "Flagged Transactions", value: "384 Records" },
+      { label: "Mule Accounts Detected", value: "42 Accounts" },
+      { label: "Total Suspicious Volume", value: "₹48.6 Lakhs" },
+      { label: "Auto-Interception Rate", value: "94.2%" },
+    ],
+    summary:
+      "Detection of automated rapid-burst transfers originating from high-risk IP subnets. Multiple beneficiary accounts exhibited instant zero-balance drainage.",
+    tableData: [
+      { col1: "AC-78945612 (A/C Rajesh S.)", col2: "₹45,000 (5 Burst Txns)", col3: "94% Mule Score", col4: "Account Frozen", badge: "danger" },
+      { col1: "AC-34567890 (A/C Vikram K.)", col2: "₹1,20,000 (Layered)", col3: "88% Mule Score", col4: "Under Review", badge: "warning" },
+      { col1: "AC-90123456 (A/C Amit P.)", col2: "₹75,000 (Rapid UPI)", col3: "82% Mule Score", col4: "Outward Hold", badge: "danger" },
+      { col1: "AC-56789012 (A/C Sneha M.)", col2: "₹30,000 (Cross-Bank)", col3: "35% Mule Score", col4: "Verified Clear", badge: "success" },
+    ],
+    actionPlan:
+      "Freeze outward debit capabilities on identified Tier-1 mule accounts. File Suspicious Transaction Reports (STR) with FIU-IND within 24 hours.",
+  },
+  {
+    id: "atm-threat",
+    icon: "🏧",
+    title: "ATM Node Vulnerability Report",
+    description: "Physical and logical cash dispenser threat mapping and hardware security audit.",
+    date: "24 Aug 2026",
+    reportId: "BRPT-ATM-2026-0824",
+    priority: "HIGH PRIORITY",
+    priorityClass: "warning",
+    metrics: [
+      { label: "Total Monitored ATMs", value: "148 Kiosks" },
+      { label: "High Vulnerability Nodes", value: "8 Kiosks" },
+      { label: "Hardware Skimmer Risk", value: "Low (No Hardware Tamper)" },
+      { label: "CCTV Uptime Ratio", value: "98.4%" },
+    ],
+    summary:
+      "Analysis of abnormal night-time ATM transactions across metro nodes. Identifies dispensers targeted by cloning syndicates and cloned card cash-out groups.",
+    tableData: [
+      { col1: "ATM-DEL-01 (CP Inner Circle)", col2: "₹14,50,000 Dispensed", col3: "91% Risk", col4: "Armed Guard Alerted", badge: "danger" },
+      { col1: "ATM-BLR-01 (MG Road Metro)", col2: "₹11,80,000 Dispensed", col3: "88% Risk", col4: "Dispenser Throttled", badge: "warning" },
+      { col1: "ATM-PUN-01 (FC Road Kiosk)", col2: "₹8,40,000 Dispensed", col3: "86% Risk", col4: "CCTV Monitored", badge: "warning" },
+      { col1: "ATM-BLR-02 (Electronic City)", col2: "₹3,20,000 Dispensed", col3: "70% Risk", col4: "Normal Operation", badge: "success" },
+    ],
+    actionPlan:
+      "Enforce mandatory biometric or OTP secondary authorization for cash withdrawals exceeding ₹25,000 between 23:00 and 06:00.",
+  },
+  {
+    id: "fund-freeze",
+    icon: "🔒",
+    title: "Emergency Fund Blocking & Recovery",
+    description: "Inter-bank fund blocking, lien placement, and victim recovery audit.",
+    date: "24 Aug 2026",
+    reportId: "BRPT-FRZ-2026-0824",
+    priority: "RECOVERY AUDIT",
+    priorityClass: "success",
+    metrics: [
+      { label: "Total Funds Frozen", value: "₹24,80,000" },
+      { label: "Successful Liens Placed", value: "28 Accounts" },
+      { label: "Average Response Time", value: "4.2 Minutes" },
+      { label: "Victim Restitution Est.", value: "₹19.2 Lakhs (77%)" },
+    ],
+    summary:
+      "Emergency freeze mandates executed upon LEA cybercrime alert reception. Rapid inter-bank communications prevented 77% of defrauded funds from being withdrawn.",
+    tableData: [
+      { col1: "Lien Mandate #FRZ-8891 (HDFC Bank)", col2: "₹4,50,000 Frozen", col3: "100% Retained", col4: "Lien Active", badge: "success" },
+      { col1: "Lien Mandate #FRZ-8892 (ICICI Bank)", col2: "₹2,40,000 Frozen", col3: "100% Retained", col4: "Court Release Pending", badge: "success" },
+      { col1: "Lien Mandate #FRZ-8893 (Axis Bank)", col2: "₹1,80,000 Frozen", col3: "85% Retained", col4: "Lien Active", badge: "success" },
+      { col1: "Lien Mandate #FRZ-8894 (SBI Branch)", col2: "₹6,10,000 Frozen", col3: "90% Retained", col4: "Restitution In Progress", badge: "success" },
+    ],
+    actionPlan:
+      "Coordinate with State Cyber Crime Police Station for speedier issuance of Section 91 CrPC / 102 CrPC formal release certificates to return funds to victims.",
+  },
+];
+
+function BankReports() {
+  const [reportsList, setReportsList] = useState(bankReportsData);
+  const [selectedReport, setSelectedReport] = useState(() => bankReportsData[0]);
+  const [showModal, setShowModal] = useState(false);
+  const [customSuccess, setCustomSuccess] = useState(false);
+
+  const [formState, setFormState] = useState({
+    auditTitle: "",
+    auditCategory: "Suspicious Transaction & Mule Audit",
+    timeframe: "Last 24 Hours",
+    riskThreshold: "High & Critical Threat (>70%)",
+    targetBranch: "",
+    nodalOfficer: "",
+    classification: "Confidential - LEA & Regulatory Shared",
+    notes: "",
+  });
+
+  function handleFormChange(field, value) {
+    setFormState((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function handleCreateAudit(e) {
+    e.preventDefault();
+
+    const categoryIcons = {
+      "Suspicious Transaction & Mule Audit": "💳",
+      "ATM Cash-Out Risk Assessment": "🏧",
+      "Emergency Fund Blocking & Recovery": "🔒",
+      "UPI Layering & Phishing Audit": "🚨",
+    };
+
+    const icon = categoryIcons[formState.auditCategory] || "📑";
+    const dateStr = new Date().toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const randId = Math.floor(1000 + Math.random() * 9000);
+    const reportCode = `BRPT-CUST-${randId}`;
+
+    const title =
+      formState.auditTitle.trim() ||
+      `${formState.auditCategory} - ${formState.targetBranch.trim() || "Regional Scope"}`;
+
+    const newReport = {
+      id: `custom-audit-${Date.now()}`,
+      icon: icon,
+      title: title,
+      description: `Custom audit compiled for ${formState.targetBranch.trim() || "All Monitored Branches"} (${formState.timeframe}, ${formState.riskThreshold}).`,
+      date: dateStr,
+      reportId: reportCode,
+      priority: formState.riskThreshold.includes("Critical")
+        ? "CRITICAL AUDIT"
+        : "CUSTOM AUDIT",
+      priorityClass: formState.riskThreshold.includes("Critical")
+        ? "danger"
+        : "warning",
+      metrics: [
+        {
+          label: "Target Scope / Cluster",
+          value: formState.targetBranch.trim() || "Multi-Branch Grid",
+        },
+        {
+          label: "Timeframe Analyzed",
+          value: formState.timeframe,
+        },
+        {
+          label: "Monitored Anomalies",
+          value: `${Math.floor(Math.random() * 60 + 25)} Flagged Nodes`,
+        },
+        {
+          label: "Loss Intercepted",
+          value: `₹${(Math.random() * 25 + 8).toFixed(2)} Lakhs`,
+        },
+      ],
+      summary:
+        formState.notes.trim() ||
+        `On-demand institutional audit executed for ${title}. Surveillance algorithms cross-correlated high-velocity transactions, IP subnet risk signatures, and nodal alert telemetry under ${formState.classification}.`,
+      tableData: [
+        {
+          col1: `Target #1 (${formState.targetBranch.trim() || "Primary Node"})`,
+          col2: `₹${Math.floor(Math.random() * 15 + 4)},50,000 Volume`,
+          col3: "91% Risk Score",
+          col4: "Action Initiated",
+          badge: "danger",
+        },
+        {
+          col1: "Secondary Node #2 (Transit ATM)",
+          col2: `₹${Math.floor(Math.random() * 8 + 2)},20,000 Volume`,
+          col3: "84% Risk Score",
+          col4: "Under Investigation",
+          badge: "warning",
+        },
+        {
+          col1: "Beneficiary A/C Cluster #3",
+          col2: "₹3,40,000 Layered",
+          col3: "76% Risk Score",
+          col4: "Lien Placed",
+          badge: "success",
+        },
+        {
+          col1: "Beneficiary A/C Cluster #4",
+          col2: "₹1,15,000 Retained",
+          col3: "30% Risk Score",
+          col4: "Cleared Normal",
+          badge: "success",
+        },
+      ],
+      actionPlan: `Proceed with Tier-1 debit hold on accounts identified under ${reportCode}. Submit formal compliance memorandum signed by ${formState.nodalOfficer.trim() || "Authorized Nodal Officer"}.`,
+    };
+
+    setReportsList((prev) => [newReport, ...prev]);
+    setSelectedReport(newReport);
+    setShowModal(false);
+    setCustomSuccess(true);
+
+    // Reset form
+    setFormState({
+      auditTitle: "",
+      auditCategory: "Suspicious Transaction & Mule Audit",
+      timeframe: "Last 24 Hours",
+      riskThreshold: "High & Critical Threat (>70%)",
+      targetBranch: "",
+      nodalOfficer: "",
+      classification: "Confidential - LEA & Regulatory Shared",
+      notes: "",
+    });
+
+    setTimeout(() => setCustomSuccess(false), 5000);
+  }
+
+  return (
+    <BankLayout title="Bank Reports & Audit">
+      <div className="page-toolbar">
+        <div>
+          <h2>Fraud Intelligence &amp; Audit Reports</h2>
+          <p>
+            Review and export institutional fraud monitoring and recovery analytics
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="primary-btn"
+          onClick={() => setShowModal(true)}
+        >
+          ⚡ + Generate Custom Audit
+        </button>
+      </div>
+
+      {customSuccess && (
+        <div
+          className="success-message"
+          style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}
+        >
+          <span>✓</span>
+          <div>
+            <strong>Custom Audit Generated Successfully!</strong>
+            <p style={{ margin: 0, fontSize: "12px" }}>
+              The newly compiled audit report ({selectedReport.reportId}) is now active in the viewer below.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Reports Grid */}
+      <div className="reports-grid">
+        {reportsList.map((report) => (
+          <ReportCard
+            key={report.id}
+            icon={report.icon}
+            title={report.title}
+            description={report.description}
+            date={report.date}
+            active={selectedReport.id === report.id}
+            onClick={() => setSelectedReport(report)}
+          />
+        ))}
+      </div>
+
+      {/* Detailed Bank Report Viewer */}
+      <div className="card intelligence-report" id="bank-report-viewer" style={{ marginTop: "20px" }}>
+        <div className="report-header">
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <h2>{selectedReport.title}</h2>
+              <span className={`badge ${selectedReport.priorityClass}`}>
+                {selectedReport.priority}
+              </span>
+            </div>
+            <p>
+              Report ID: {selectedReport.reportId} &bull; Generated:{" "}
+              {selectedReport.date} &bull; Security Clearance: Banking Nodal Authority
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="small-btn"
+              onClick={() =>
+                alert(
+                  `[EXPORT COMPLETE] ${selectedReport.title} (${selectedReport.reportId}) downloaded in encrypted PDF format.`
+                )
+              }
+            >
+              📥 Export PDF
+            </button>
+            <button
+              type="button"
+              className="small-btn"
+              onClick={() =>
+                alert(
+                  `[CSV EXPORT] Transaction audit dataset for ${selectedReport.reportId} exported to CSV.`
+                )
+              }
+            >
+              📊 Export CSV
+            </button>
+            <button
+              type="button"
+              className="small-btn"
+              onClick={() => window.print()}
+            >
+              🖨️ Print
+            </button>
+          </div>
+        </div>
+
+        <div className="report-grid">
+          {selectedReport.metrics.map((metric, idx) => (
+            <div key={idx}>
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div
+          className="report-summary-box"
+          style={{
+            marginTop: "18px",
+            padding: "14px 16px",
+            borderRadius: "10px",
+            background: "rgba(57,215,255,0.04)",
+            border: "1px solid rgba(57,215,255,0.12)",
+          }}
+        >
+          <strong
+            style={{
+              display: "block",
+              color: "var(--cyan)",
+              fontSize: "12px",
+              fontFamily: "'JetBrains Mono', monospace",
+              textTransform: "uppercase",
+              letterSpacing: ".05em",
+              marginBottom: "4px",
+            }}
+          >
+            Banking Fraud Intelligence Summary
+          </strong>
+          <p style={{ margin: 0, color: "#a5bdd3", fontSize: "13px", lineHeight: "1.6" }}>
+            {selectedReport.summary}
+          </p>
+        </div>
+
+        <div style={{ marginTop: "20px", overflowX: "auto" }}>
+          <h3 style={{ margin: "0 0 12px", fontSize: "14.5px" }}>
+            Incident &amp; Beneficiary Account Breakdown
+          </h3>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th>Account / Node / Mandate</th>
+                <th>Volume / Threat Pattern</th>
+                <th>Risk / Retention Score</th>
+                <th>Current Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedReport.tableData.map((row, idx) => (
+                <tr key={idx}>
+                  <td>
+                    <strong>{row.col1}</strong>
+                  </td>
+                  <td>{row.col2}</td>
+                  <td>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      {row.col3}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge ${row.badge}`}>{row.col4}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="recommendation">
+          <h3>Recommended Banking Enforcement &amp; Compliance Action</h3>
+          <p>{selectedReport.actionPlan}</p>
+        </div>
+      </div>
+
+      {/* Generate Custom Audit Modal Dialog */}
+      {showModal && (
+        <div
+          className="custom-modal-backdrop"
+          onClick={(e) => {
+            if (e.target.className === "custom-modal-backdrop") {
+              setShowModal(false);
+            }
+          }}
+        >
+          <div className="custom-modal-dialog">
+            <div className="custom-modal-header">
+              <h3>⚡ Generate Custom Institutional Audit</h3>
+              <button
+                type="button"
+                className="custom-modal-close"
+                onClick={() => setShowModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="custom-modal-body">
+              <form onSubmit={handleCreateAudit}>
+                <label>Audit Title</label>
+                <input
+                  type="text"
+                  value={formState.auditTitle}
+                  onChange={(e) => handleFormChange("auditTitle", e.target.value)}
+                  placeholder="e.g. Western Express ATM Skimming & Mule Ring Audit"
+                />
+
+                <div className="form-two-column">
+                  <div>
+                    <label>Audit Category</label>
+                    <select
+                      value={formState.auditCategory}
+                      onChange={(e) => handleFormChange("auditCategory", e.target.value)}
+                    >
+                      <option value="Suspicious Transaction & Mule Audit">
+                        Suspicious Transaction &amp; Mule Audit
+                      </option>
+                      <option value="ATM Cash-Out Risk Assessment">
+                        ATM Cash-Out Risk Assessment
+                      </option>
+                      <option value="Emergency Fund Blocking & Recovery">
+                        Emergency Fund Blocking &amp; Recovery
+                      </option>
+                      <option value="UPI Layering & Phishing Audit">
+                        UPI Layering &amp; Phishing Audit
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label>Timeframe</label>
+                    <select
+                      value={formState.timeframe}
+                      onChange={(e) => handleFormChange("timeframe", e.target.value)}
+                    >
+                      <option value="Today (Real-time)">Today (Real-time)</option>
+                      <option value="Last 24 Hours">Last 24 Hours</option>
+                      <option value="Last 7 Days">Last 7 Days</option>
+                      <option value="Last 30 Days">Last 30 Days</option>
+                      <option value="Quarterly Audit (Q3 2026)">Quarterly Audit (Q3 2026)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-two-column">
+                  <div>
+                    <label>Target Branch / ATM Cluster</label>
+                    <input
+                      type="text"
+                      value={formState.targetBranch}
+                      onChange={(e) => handleFormChange("targetBranch", e.target.value)}
+                      placeholder="e.g. Mumbai West Cluster, BKC Branch"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label>Risk Threshold</label>
+                    <select
+                      value={formState.riskThreshold}
+                      onChange={(e) => handleFormChange("riskThreshold", e.target.value)}
+                    >
+                      <option value="Critical Threat Only (>85%)">
+                        Critical Threat Only (&gt;85%)
+                      </option>
+                      <option value="High & Critical Threat (>70%)">
+                        High &amp; Critical Threat (&gt;70%)
+                      </option>
+                      <option value="All Monitored Anomalies">
+                        All Monitored Anomalies
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-two-column">
+                  <div>
+                    <label>Nodal Auditor / Supervising Officer</label>
+                    <input
+                      type="text"
+                      value={formState.nodalOfficer}
+                      onChange={(e) => handleFormChange("nodalOfficer", e.target.value)}
+                      placeholder="e.g. Rajesh Verma (Chief Vigilance Officer)"
+                    />
+                  </div>
+
+                  <div>
+                    <label>Classification &amp; Clearance</label>
+                    <select
+                      value={formState.classification}
+                      onChange={(e) => handleFormChange("classification", e.target.value)}
+                    >
+                      <option value="Confidential - LEA & Regulatory Shared">
+                        Confidential - LEA &amp; Regulatory Shared
+                      </option>
+                      <option value="Internal Fraud Risk Committee Only">
+                        Internal Fraud Risk Committee Only
+                      </option>
+                      <option value="FIU-IND Regulatory Submission">
+                        FIU-IND Regulatory Submission
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                <label>Special Investigation Notes &amp; Scope</label>
+                <textarea
+                  rows="3"
+                  value={formState.notes}
+                  onChange={(e) => handleFormChange("notes", e.target.value)}
+                  placeholder="Enter specific audit rationale, reference FIR/Complaint IDs or mandate numbers..."
+                  style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", minHeight: "80px" }}
+                />
+
+                <div
+                  style={{
+                    marginTop: "22px",
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "12px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => setShowModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="primary-btn">
+                    ⚡ Compile &amp; Generate Audit Report
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </BankLayout>
+  );
+}
+
+/* =====================================================
+   BANK SETTINGS
+===================================================== */
+
+function BankSettings() {
+  const [bankProfile, setBankProfile] = useState(() => {
+    try {
+      const saved = localStorage.getItem("cybex-bank-profile");
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return {
+      bankName: "",
+      bankCode: "",
+      branchPrefix: "",
+      nodalOfficer: "",
+      nodalEmail: "",
+      nodalPhone: "",
+      institutionType: "Scheduled Commercial Bank",
+      registeredAddress: "",
+    };
+  });
+
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  function handleChange(field, value) {
+    setBankProfile((prev) => ({ ...prev, [field]: value }));
+    setSavedSuccess(false);
+  }
+
+  function handleSave(e) {
+    e.preventDefault();
+    try {
+      localStorage.setItem("cybex-bank-profile", JSON.stringify(bankProfile));
+    } catch {}
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 4000);
+  }
+
+  function handleClear() {
+    const emptyState = {
+      bankName: "",
+      bankCode: "",
+      branchPrefix: "",
+      nodalOfficer: "",
+      nodalEmail: "",
+      nodalPhone: "",
+      institutionType: "Scheduled Commercial Bank",
+      registeredAddress: "",
+    };
+    setBankProfile(emptyState);
+    try {
+      localStorage.removeItem("cybex-bank-profile");
+    } catch {}
+    setSavedSuccess(false);
+  }
+
+  return (
+    <BankLayout title="Bank Settings">
+      <div className="settings-grid">
+        <div className="card">
+          <div className="profile-large">
+            <div className="avatar large">
+              {bankProfile.bankName.trim()
+                ? bankProfile.bankName
+                    .trim()
+                    .split(" ")
+                    .filter(Boolean)
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()
+                : "BK"}
+            </div>
+
+            <div>
+              <h2>{bankProfile.bankName.trim() || "Bank Entity"}</h2>
+              <p>
+                {bankProfile.institutionType} &bull; Code:{" "}
+                {bankProfile.bankCode.trim() || "Pending Setup"}
+              </p>
+            </div>
+          </div>
+
+          {savedSuccess && (
+            <div className="success-message" style={{ marginBottom: "18px" }}>
+              ✓ Bank Profile and Nodal Officer information saved successfully!
+            </div>
+          )}
+
+          <form onSubmit={handleSave}>
+            <div className="form-two-column">
+              <div>
+                <label>Bank Name</label>
+                <input
+                  type="text"
+                  value={bankProfile.bankName}
+                  onChange={(e) => handleChange("bankName", e.target.value)}
+                  placeholder="e.g. State Bank of India / HDFC Bank"
+                  required
+                />
+              </div>
+
+              <div>
+                <label>Bank Entity Code</label>
+                <input
+                  type="text"
+                  value={bankProfile.bankCode}
+                  onChange={(e) => handleChange("bankCode", e.target.value)}
+                  placeholder="e.g. SBIN001 / HDFC001"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-two-column">
+              <div>
+                <label>Institution Type</label>
+                <select
+                  value={bankProfile.institutionType}
+                  onChange={(e) => handleChange("institutionType", e.target.value)}
+                >
+                  <option value="Scheduled Commercial Bank">
+                    Scheduled Commercial Bank
+                  </option>
+                  <option value="Payments Bank">Payments Bank</option>
+                  <option value="Small Finance Bank">Small Finance Bank</option>
+                  <option value="Co-operative Bank">Co-operative Bank</option>
+                  <option value="Fintech NBFC">Fintech / NBFC Partner</option>
+                </select>
+              </div>
+
+              <div>
+                <label>IFSC Branch Prefix</label>
+                <input
+                  type="text"
+                  value={bankProfile.branchPrefix}
+                  onChange={(e) => handleChange("branchPrefix", e.target.value)}
+                  placeholder="e.g. SBIN000 / HDFC000"
+                />
+              </div>
+            </div>
+
+            <div className="form-two-column">
+              <div>
+                <label>Nodal Fraud Prevention Officer</label>
+                <input
+                  type="text"
+                  value={bankProfile.nodalOfficer}
+                  onChange={(e) => handleChange("nodalOfficer", e.target.value)}
+                  placeholder="e.g. Rajesh Verma (Chief Vigilance Officer)"
+                />
+              </div>
+
+              <div>
+                <label>Nodal Desk Email</label>
+                <input
+                  type="email"
+                  value={bankProfile.nodalEmail}
+                  onChange={(e) => handleChange("nodalEmail", e.target.value)}
+                  placeholder="e.g. fraud.desk@bank.co.in"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-two-column">
+              <div>
+                <label>Emergency Nodal Hotline</label>
+                <input
+                  type="tel"
+                  value={bankProfile.nodalPhone}
+                  onChange={(e) => handleChange("nodalPhone", e.target.value)}
+                  placeholder="e.g. +91 22 2288 1234"
+                  required
+                />
+              </div>
+
+              <div>
+                <label>Registered Head Office</label>
+                <input
+                  type="text"
+                  value={bankProfile.registeredAddress}
+                  onChange={(e) => handleChange("registeredAddress", e.target.value)}
+                  placeholder="e.g. Nariman Point, Mumbai - 400021"
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: "22px",
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              <button type="submit" className="primary-btn">
+                💾 Save Bank Profile
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={handleClear}
+              >
+                Clear Form
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="card">
+          <h3>🔔 Alert Preferences</h3>
+
+          <SettingToggle
+            title="High Risk Alerts"
+            description="Receive immediate risk alerts for cash-out surges"
+          />
+
+          <SettingToggle
+            title="ATM Withdrawal Alerts"
+            description="Receive ATM withdrawal anomaly alerts"
+          />
+
+          <SettingToggle
+            title="Suspicious Transactions"
+            description="Receive real-time alerts for mule account velocity"
+          />
+
+          <SettingToggle
+            title="Emergency LEA Freeze Orders"
+            description="Automated notification for Law Enforcement fund blocks"
+          />
+        </div>
+      </div>
+    </BankLayout>
+  );
+}
+
+/* =====================================================
+   ROUTES
+===================================================== */
+
+function App() {
+  return (
+    <Routes>
+      {/* LOGIN */}
+      <Route path="/" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      {/* OFFICER */}
+      <Route
+        path="/dashboard"
+        element={<Dashboard />}
+      />
+
+      <Route
+        path="/complaints"
+        element={<Complaints />}
+      />
+
+      <Route
+        path="/prediction"
+        element={<Prediction />}
+      />
+
+      <Route
+        path="/heatmap"
+        element={<Heatmap />}
+      />
+
+      <Route
+        path="/alerts"
+        element={<Alerts />}
+      />
+
+      <Route
+        path="/reports"
+        element={<Reports />}
+      />
+
+      <Route
+        path="/settings"
+        element={<Settings />}
+      />
+
+      {/* CITIZEN */}
+      <Route
+        path="/citizen-dashboard"
+        element={<CitizenDashboard />}
+      />
+
+      <Route
+        path="/report-cybercrime"
+        element={<ReportCybercrime />}
+      />
+
+      <Route
+        path="/upload-evidence"
+        element={<UploadEvidence />}
+      />
+
+      <Route
+        path="/my-complaints"
+        element={<MyComplaints />}
+      />
+
+      <Route
+        path="/track-complaint"
+        element={<TrackComplaint />}
+      />
+
+      <Route
+        path="/citizen-alerts"
+        element={<CitizenAlerts />}
+      />
+
+      <Route
+        path="/citizen-profile"
+        element={<CitizenProfile />}
+      />
+
+      {/* BANK */}
+      <Route
+        path="/bank-dashboard"
+        element={<BankDashboard />}
+      />
+
+      <Route
+        path="/bank-risk-alerts"
+        element={<BankRiskAlerts />}
+      />
+
+      <Route
+        path="/suspicious-transactions"
+        element={<SuspiciousTransactions />}
+      />
+
+      <Route
+        path="/atm-risk"
+        element={<AtmRisk />}
+      />
+
+      <Route
+        path="/fund-blocking"
+        element={<FundBlocking />}
+      />
+
+      <Route
+        path="/bank-analytics"
+        element={<BankAnalytics />}
+      />
+
+      <Route
+        path="/bank-reports"
+        element={<BankReports />}
+      />
+
+      <Route
+        path="/bank-settings"
+        element={<BankSettings />}
+      />
+    </Routes>
+  );
+}
+
+export default App;
