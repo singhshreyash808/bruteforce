@@ -300,6 +300,8 @@ export function AuthProvider({ children }) {
     setUserProfile(null);
     setUserRole("officer");
     localStorage.removeItem("cybex_auth_user");
+    localStorage.removeItem("cybex_jwt_token");
+    sessionStorage.clear();
   };
 
   // 4. Send Firebase Password Reset Email

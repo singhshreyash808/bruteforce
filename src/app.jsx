@@ -1173,6 +1173,8 @@ function ResetPassword() {
 
 function OfficerSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const menu = [
     {
@@ -1253,11 +1255,10 @@ function OfficerSidebar() {
 
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             if (window.confirm("Are you sure you want to log out of the CybeX Officer Portal?")) {
-              localStorage.removeItem("cybex_jwt_token");
-              localStorage.removeItem("cybex_auth_user");
-              window.location.href = "/";
+              await logout();
+              navigate("/", { replace: true });
             }
           }}
           className="logout"
@@ -5451,6 +5452,8 @@ function SettingToggle({
 
 function CitizenSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const menu = [
     {
@@ -5522,10 +5525,11 @@ function CitizenSidebar() {
 
         <button
           type="button"
-          onClick={() => {
-            localStorage.removeItem("cybex_jwt_token");
-            localStorage.removeItem("cybex_auth_user");
-            window.location.href = "/";
+          onClick={async () => {
+            if (window.confirm("Are you sure you want to log out of the Citizen Portal?")) {
+              await logout();
+              navigate("/", { replace: true });
+            }
           }}
           className="logout"
           style={{ background: "transparent", border: "none", width: "100%", textAlign: "left", cursor: "pointer" }}
@@ -6695,6 +6699,8 @@ function CitizenProfile() {
 
 function BankSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const menu = [
     {
@@ -6775,10 +6781,11 @@ function BankSidebar() {
 
         <button
           type="button"
-          onClick={() => {
-            localStorage.removeItem("cybex_jwt_token");
-            localStorage.removeItem("cybex_auth_user");
-            window.location.href = "/";
+          onClick={async () => {
+            if (window.confirm("Are you sure you want to log out of the Bank Portal?")) {
+              await logout();
+              navigate("/", { replace: true });
+            }
           }}
           className="logout"
           style={{ background: "transparent", border: "none", width: "100%", textAlign: "left", cursor: "pointer" }}
