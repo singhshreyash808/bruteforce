@@ -13,7 +13,6 @@ import "leaflet/dist/leaflet.css";
 
 import "./app.css";
 import Documents from "./pages/Documents";
-import OfficerAnalytics from "./pages/OfficerAnalytics";
 import statesData from "./states-and-districts.json";
 import statesDistrictsMap from "./statesDistricts.json";
 import { getStateGeo, getDistrictGeo, INDIA_DEFAULT } from "./geo-coordinates";
@@ -1197,11 +1196,6 @@ function OfficerSidebar() {
       path: "/heatmap",
       icon: "🗺️",
       name: "Risk Heatmap",
-    },
-    {
-      path: "/analytics",
-      icon: "📈",
-      name: "Analytics",
     },
     {
       path: "/alerts",
@@ -9099,17 +9093,6 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["officer", "admin"]}>
             <Heatmap />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/analytics"
-        element={
-          <ProtectedRoute allowedRoles={["officer", "admin"]}>
-            <Layout title="Predictive Analytics & Threat Intelligence">
-              <OfficerAnalytics />
-            </Layout>
           </ProtectedRoute>
         }
       />
