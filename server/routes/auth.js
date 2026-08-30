@@ -1,4 +1,4 @@
-﻿/**
+/**
  * auth.js
  * Express router for registration, login, JWT verification, and password reset flows (Email + WhatsApp OTP).
  */
@@ -51,7 +51,7 @@ router.post('/register', async (req, res) => {
     }
 
     if (confirmPassword && password !== confirmPassword) {
-      return res.status(400).json({ error: 'Password and Confirm Password do not match.' });
+      return res.status(400).json({ error: 'Passwords do not match.' });
     }
 
     // Check duplicate User ID (case-insensitive)
@@ -59,7 +59,7 @@ router.post('/register', async (req, res) => {
       where: { userId: { [Op.like]: userId.trim() } }
     });
     if (existingUserId) {
-      return res.status(400).json({ error: `User ID "${userId}" is already registered. Please choose another.` });
+      return res.status(400).json({ error: 'This User ID is already registered.' });
     }
 
     // Check duplicate Email
@@ -68,7 +68,7 @@ router.post('/register', async (req, res) => {
       where: { email: cleanEmail }
     });
     if (existingEmail) {
-      return res.status(400).json({ error: `An account with email "${email}" is already registered.` });
+      return res.status(400).json({ error: 'An account with this email already exists.' });
     }
 
     // Check duplicate Phone
@@ -91,7 +91,7 @@ router.post('/register', async (req, res) => {
     const safeRole = ['officer', 'citizen', 'bank'].includes(role) ? role : 'officer';
 
     // Hash password with bcrypt
-    const saltRounds = 10;
+    const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     const newUser = await User.create({
@@ -153,7 +153,7 @@ router.post('/login', async (req, res) => {
     const loginIdentifier = (userId || identifier || '').trim();
 
     if (!loginIdentifier || !password) {
-      return res.status(400).json({ error: 'Please enter your User ID / Email and password.' });
+      return res.status(400).json({ error: 'Please enter your User ID and password.' });
     }
 
     // Lookup user by userId OR email
@@ -167,7 +167,7 @@ router.post('/login', async (req, res) => {
     });
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials. Please verify your User ID and password.' });
+      return res.status(401).json({ error: 'Account not found. Please sign up first.' });
     }
 
     if (!user.isActive) {
@@ -182,7 +182,7 @@ router.post('/login', async (req, res) => {
     // Verify bcrypt password hash
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid credentials. Please verify your User ID and password.' });
+      return res.status(401).json({ error: 'Invalid User ID or password.' });
     }
 
     // Update lastLoginAt
