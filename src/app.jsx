@@ -687,20 +687,25 @@ function Register() {
 }
 
 /* =====================================================
-   FORGOT PASSWORD (EMAIL & WHATSAPP OTP RESET FLOWS)
+   FORGOT PASSWORD (FIREBASE EMAIL & SMS OTP RESET FLOWS)
 ===================================================== */
 
 function ForgotPassword() {
   const navigate = useNavigate();
-  const { requestEmailReset, requestPhoneReset, verifyPhoneOtp, resetPassword } = useAuth();
+  const {
+    requestEmailReset,
+    setupRecaptcha,
+    sendPhoneOtp,
+    verifyPhoneOtp,
+    updateUserPassword,
+  } = useAuth();
 
-  const [method, setMethod] = useState("phone"); // 'phone' (WhatsApp) or 'email'
+  const [method, setMethod] = useState("email"); // 'email' or 'phone'
   const [step, setStep] = useState(1); // 1: Input, 2: OTP, 3: New Password, 4: Done
 
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -708,7 +713,7 @@ function ForgotPassword() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Step 1: Request OTP or Email Reset Link
+  // Step 1: Request Email Reset Link or Phone SMS OTP
   async function handleRequestReset(e) {
     e.preventDefault();
     setError("");
@@ -720,14 +725,20 @@ function ForgotPassword() {
         return;
       }
       setLoading(true);
-      const res = await requestPhoneReset(phone.trim());
-      setLoading(false);
+      try {
+        const appVerifier = setupRecaptcha("recaptcha-container");
+        const res = await sendPhoneOtp(phone.trim(), appVerifier);
+        setLoading(false);
 
-      if (res.success) {
-        setMessage(res.message);
-        setStep(2); // Go to OTP verification step
-      } else {
-        setError(res.error || "Failed to dispatch verification code.");
+        if (res.success) {
+          setMessage(res.message);
+          setStep(2); // Go to OTP verification step
+        } else {
+          setError(res.error || "Failed to dispatch verification code.");
+        }
+      } catch (err) {
+        setLoading(false);
+        setError(err.message || "Failed to dispatch verification code.");
       }
     } else {
       if (!email.trim()) {
@@ -747,7 +758,7 @@ function ForgotPassword() {
     }
   }
 
-  // Step 2: Verify WhatsApp OTP
+  // Step 2: Verify Phone SMS OTP
   async function handleVerifyOtp(e) {
     e.preventDefault();
     setError("");
@@ -759,11 +770,10 @@ function ForgotPassword() {
     }
 
     setLoading(true);
-    const res = await verifyPhoneOtp(phone.trim(), otp.trim());
+    const res = await verifyPhoneOtp(otp.trim());
     setLoading(false);
 
     if (res.success) {
-      setResetToken(res.resetToken);
       setMessage("✓ OTP verified successfully! Create your new password below.");
       setStep(3); // Go to New Password step
     } else {
@@ -771,14 +781,14 @@ function ForgotPassword() {
     }
   }
 
-  // Step 3: Set New Password
+  // Step 3: Set New Password via Firebase
   async function handleSetNewPassword(e) {
     e.preventDefault();
     setError("");
     setMessage("");
 
-    if (!newPassword || newPassword.length < 4) {
-      setError("New password must be at least 4 characters.");
+    if (!newPassword || newPassword.length < 6) {
+      setError("New password must be at least 6 characters.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -787,7 +797,7 @@ function ForgotPassword() {
     }
 
     setLoading(true);
-    const res = await resetPassword(resetToken, newPassword, confirmPassword);
+    const res = await updateUserPassword(newPassword);
     setLoading(false);
 
     if (res.success) {
@@ -813,16 +823,16 @@ function ForgotPassword() {
 
         <div className="login-info">
           <div>
-            <strong>WhatsApp OTP</strong>
-            <span>Fast Instant Verification</span>
+            <strong>Firebase Auth</strong>
+            <span>Secure Cloud Verification</span>
           </div>
           <div>
-            <strong>Cryptographic</strong>
-            <span>Secure Password Hashing</span>
+            <strong>SMS & Email</strong>
+            <span>Reliable Multi-Channel Reset</span>
           </div>
           <div>
             <strong>Account Safety</strong>
-            <span>Immediate Old Key Revocation</span>
+            <span>Instant Cloud Token Revocation</span>
           </div>
         </div>
       </div>
@@ -831,22 +841,15 @@ function ForgotPassword() {
         <div className="login-card" style={{ maxWidth: "440px" }}>
           <div className="login-card-header">
             <h2>Account Recovery</h2>
-            <p>Reset your password securely via WhatsApp OTP or Email</p>
+            <p>Reset your password securely via Firebase Email Link or Phone OTP</p>
           </div>
+
+          {/* Hidden reCAPTCHA container for Phone Auth */}
+          <div id="recaptcha-container"></div>
 
           {/* Recovery Method Selector (when on Step 1) */}
           {step === 1 && (
             <div className="role-selector" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: "18px" }}>
-              <button
-                type="button"
-                className={method === "phone" ? "role-card selected" : "role-card"}
-                onClick={() => { setMethod("phone"); setError(""); setMessage(""); }}
-              >
-                <span className="role-icon">📱</span>
-                <strong>WhatsApp OTP</strong>
-                <small>Instant Mobile SMS/WA</small>
-              </button>
-
               <button
                 type="button"
                 className={method === "email" ? "role-card selected" : "role-card"}
@@ -854,7 +857,17 @@ function ForgotPassword() {
               >
                 <span className="role-icon">✉️</span>
                 <strong>Email Link</strong>
-                <small>15-Min Secure Link</small>
+                <small>Official Reset Email</small>
+              </button>
+
+              <button
+                type="button"
+                className={method === "phone" ? "role-card selected" : "role-card"}
+                onClick={() => { setMethod("phone"); setError(""); setMessage(""); }}
+              >
+                <span className="role-icon">📱</span>
+                <strong>Phone SMS OTP</strong>
+                <small>Firebase SMS Code</small>
               </button>
             </div>
           )}
@@ -887,25 +900,10 @@ function ForgotPassword() {
             </div>
           )}
 
-          {/* STEP 1: Phone or Email input */}
+          {/* STEP 1: Email or Phone input */}
           {step === 1 && (
             <form onSubmit={handleRequestReset}>
-              {method === "phone" ? (
-                <>
-                  <label>Registered Phone Number (WhatsApp)</label>
-                  <input
-                    type="tel"
-                    placeholder="e.g. +91 98765 43210"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                  <small style={{ color: "var(--muted, #94a3b8)", fontSize: "11px", display: "block", marginTop: "4px" }}>
-                    A 6-digit one-time code will be dispatched directly to WhatsApp.
-                  </small>
-                </>
-              ) : (
+              {method === "email" ? (
                 <>
                   <label>Registered Email Address</label>
                   <input
@@ -917,25 +915,40 @@ function ForgotPassword() {
                     required
                   />
                   <small style={{ color: "var(--muted, #94a3b8)", fontSize: "11px", display: "block", marginTop: "4px" }}>
-                    A single-use password reset link valid for 15 minutes will be sent.
+                    An official Firebase password reset link will be sent to this email.
+                  </small>
+                </>
+              ) : (
+                <>
+                  <label>Registered Phone Number (with Country Code)</label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. +91 98765 43210"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                  <small style={{ color: "var(--muted, #94a3b8)", fontSize: "11px", display: "block", marginTop: "4px" }}>
+                    A 6-digit one-time SMS verification code will be sent via Firebase.
                   </small>
                 </>
               )}
 
               <button className="primary-btn login-btn" style={{ marginTop: "18px" }} disabled={loading}>
-                {loading ? "⏳ Dispatching Request..." : (method === "phone" ? "📱 Send WhatsApp OTP" : "✉️ Send Reset Link")}
+                {loading ? "⏳ Processing..." : (method === "email" ? "✉️ Send Password Reset Email" : "📱 Send SMS OTP Code")}
               </button>
             </form>
           )}
 
-          {/* STEP 2: WhatsApp OTP input */}
+          {/* STEP 2: Phone SMS OTP input */}
           {step === 2 && (
             <form onSubmit={handleVerifyOtp}>
               <div style={{ background: "rgba(6, 182, 212, 0.1)", border: "1px solid var(--cyan, #06B6D4)", padding: "12px", borderRadius: "8px", marginBottom: "14px", fontSize: "13px" }}>
                 📱 <strong>Code sent to:</strong> {phone}
               </div>
 
-              <label>Enter 6-Digit WhatsApp OTP Code</label>
+              <label>Enter 6-Digit SMS Verification Code</label>
               <input
                 type="text"
                 placeholder="• • • • • •"
@@ -967,7 +980,7 @@ function ForgotPassword() {
           {/* STEP 3: Create New Password */}
           {step === 3 && (
             <form onSubmit={handleSetNewPassword}>
-              <label>New Password</label>
+              <label>New Password (min 6 characters)</label>
               <input
                 type="password"
                 placeholder="Enter new password"
@@ -988,7 +1001,7 @@ function ForgotPassword() {
               />
 
               <button className="primary-btn login-btn" style={{ marginTop: "18px" }} disabled={loading}>
-                {loading ? "💾 Updating Password..." : "💾 Set New Password"}
+                {loading ? "💾 Updating Password..." : "💾 Update Password"}
               </button>
             </form>
           )}
@@ -997,9 +1010,11 @@ function ForgotPassword() {
           {step === 4 && (
             <div style={{ textAlign: "center", padding: "16px 0" }}>
               <div style={{ fontSize: "42px", marginBottom: "12px" }}>🎉</div>
-              <h3 style={{ marginBottom: "8px" }}>Password Recovery Complete</h3>
+              <h3 style={{ marginBottom: "8px" }}>Password Recovery Dispatched</h3>
               <p style={{ color: "var(--muted, #94a3b8)", fontSize: "13px", marginBottom: "20px" }}>
-                Your account password has been updated and securely hashed in the database. Your previous password has been permanently deactivated.
+                {method === "email"
+                  ? "A secure reset link has been dispatched to your email. Click the link in your email to choose your new password."
+                  : "Your account password has been updated in Firebase. You may now proceed to log in."}
               </p>
               <button
                 type="button"
