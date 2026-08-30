@@ -2334,8 +2334,12 @@ function Prediction() {
   // Current active prediction
   const [prediction, setPrediction] = useState(null);
 
-  // Dispatched units state
+  // Dispatched units state & tactical dispatch
   const [dispatchedAtms, setDispatchedAtms] = useState({});
+  const [activeDispatch, setActiveDispatch] = useState(null);
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [dispatchModalOpen, setDispatchModalOpen] = useState(false);
+  const [dispatchStatusUpdating, setDispatchStatusUpdating] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   function showToast(msg) {
@@ -2343,7 +2347,7 @@ function Prediction() {
     setTimeout(() => setToastMessage(null), 4500);
   }
 
-  // When complaint changes in complaint mode, automatically update prediction
+  // When complaint changes in complaint mode, automatically update prediction & check active dispatch
   function handleComplaintChange(id) {
     setSelectedComplaintId(id);
     const found = dbComplaints.find((c) => c.id === id);
@@ -2353,6 +2357,29 @@ function Prediction() {
       setPrediction(null);
     }
   }
+
+  // Fetch active dispatch record for current incident / complaint
+  const targetCoords = prediction?.coordinates || [prediction?.latitude || currentComplaint.latitude || 19.0760, prediction?.longitude || currentComplaint.longitude || 72.8777];
+  const targetLat = targetCoords[0] || 19.0760;
+  const targetLng = targetCoords[1] || 72.8777;
+  const targetLoc = prediction?.location || currentComplaint.location || `${currentComplaint.district || 'Target'}, ${currentComplaint.state || 'Corridor'}`;
+  const targetScore = prediction?.score || currentComplaint?.predictionData?.score || 85;
+  const targetLevel = prediction?.riskLevel || currentComplaint?.predictionData?.riskLevel || 'HIGH';
+  const targetId = prediction?.complaintId || selectedComplaintId || 'TARGET';
+
+  useEffect(() => {
+    if (!targetId || targetId === 'TARGET') return;
+    fetch(`http://localhost:3001/api/dispatches/incident/${encodeURIComponent(targetId)}/active`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.active && data.dispatch) {
+          setActiveDispatch(data.dispatch);
+        } else {
+          setActiveDispatch(null);
+        }
+      })
+      .catch(() => {});
+  }, [targetId, selectedComplaintId]);
 
   // Run AI Spatio-Temporal Inference via Python ML Backend
   async function handleRunInference() {
@@ -2431,10 +2458,72 @@ function Prediction() {
     );
   }
 
-  function handleDispatchSectorPatrol() {
-    showToast(
-      `🚨 Sector Quick-Response Unit alerted for ${prediction?.location || currentComplaint.location}. Live tracking geofence active.`
-    );
+  // Real Production-Style Dispatch Sector Mobile Patrol
+  async function handleDispatchSectorPatrol() {
+    setIsDispatching(true);
+    try {
+      const payload = {
+        incidentId: targetId,
+        predictionId: prediction?.id || null,
+        location: targetLoc,
+        state: currentComplaint.state || 'Maharashtra',
+        district: currentComplaint.district || currentComplaint.city || 'Mumbai',
+        latitude: targetLat,
+        longitude: targetLng,
+        riskLevel: targetLevel,
+        threatScore: targetScore,
+        crimeCategory: prediction?.category || currentComplaint.type || 'ATM Fraud & Skimming',
+        notes: `AI Spatio-Temporal inference threat score: ${targetScore}%. Action: ${prediction?.recommendedAction || 'Sector patrol geofence'}`
+      };
+
+      const res = await fetch("http://localhost:3001/api/dispatches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (data.success && data.dispatch) {
+        setActiveDispatch(data.dispatch);
+        setDispatchModalOpen(true);
+        if (data.isDuplicate) {
+          showToast(`ℹ️ Active patrol ${data.dispatch.unitCode} is already responding (${data.dispatch.dispatchStatus}).`);
+        } else {
+          showToast(`🚨 Patrol Unit ${data.dispatch.unitCode} dispatched! ETA: ${data.dispatch.estimatedEtaMinutes} mins.`);
+        }
+      } else {
+        alert(data.error || "Failed to dispatch patrol unit. Please try again.");
+      }
+    } catch (err) {
+      console.error("Dispatch error:", err);
+      showToast("❌ Dispatch service temporarily unavailable.");
+    } finally {
+      setIsDispatching(false);
+    }
+  }
+
+  async function handleUpdateDispatchStatus(newStatus) {
+    if (!activeDispatch) return;
+    setDispatchStatusUpdating(true);
+    try {
+      const res = await fetch(`http://localhost:3001/api/dispatches/${encodeURIComponent(activeDispatch.dispatchId)}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (data.success && data.dispatch) {
+        setActiveDispatch(data.dispatch);
+        showToast(`✓ Dispatch status transitioned to ${newStatus}`);
+      } else {
+        alert(data.error || "Failed to update status.");
+      }
+    } catch (err) {
+      console.error("Status update error:", err);
+      showToast("Error updating dispatch status.");
+    } finally {
+      setDispatchStatusUpdating(false);
+    }
   }
 
   function handleFreezeNotice() {
@@ -2451,15 +2540,8 @@ function Prediction() {
     showToast("📥 Tactical Intelligence Dossier exported to encrypted PDF.");
   }
 
-  // Dynamic deep link to Heatmap with target coordinates & complaint details
-  const targetCoords = prediction?.coordinates || [prediction?.latitude || currentComplaint.latitude || 19.0760, prediction?.longitude || currentComplaint.longitude || 72.8777];
-  const targetLat = targetCoords[0] || 19.0760;
-  const targetLng = targetCoords[1] || 72.8777;
-  const targetLoc = prediction?.location || currentComplaint.location || 'Target Area';
-  const targetScore = prediction?.score || currentComplaint?.predictionData?.score || 85;
-  const targetLevel = prediction?.riskLevel || currentComplaint?.predictionData?.riskLevel || 'HIGH';
-  const targetId = prediction?.complaintId || selectedComplaintId || 'TARGET';
-  const mapDeepLink = `/heatmap?lat=${targetLat}&lng=${targetLng}&zoom=13&complaintId=${encodeURIComponent(targetId)}&location=${encodeURIComponent(targetLoc)}&riskLevel=${encodeURIComponent(targetLevel)}&score=${targetScore}&state=${encodeURIComponent(currentComplaint.state || '')}&district=${encodeURIComponent(currentComplaint.district || '')}`;
+  // Dynamic deep link to Heatmap with target coordinates & dispatch details
+  const mapDeepLink = `/heatmap?lat=${targetLat}&lng=${targetLng}&zoom=13&complaintId=${encodeURIComponent(targetId)}&location=${encodeURIComponent(targetLoc)}&riskLevel=${encodeURIComponent(targetLevel)}&score=${targetScore}&state=${encodeURIComponent(currentComplaint.state || '')}&district=${encodeURIComponent(currentComplaint.district || '')}${activeDispatch ? `&dispatchId=${encodeURIComponent(activeDispatch.dispatchId)}&patrolLat=${activeDispatch.patrolStartLat}&patrolLng=${activeDispatch.patrolStartLng}&unitCode=${encodeURIComponent(activeDispatch.unitCode)}&eta=${activeDispatch.estimatedEtaMinutes}&dist=${activeDispatch.distanceKm}&dispatchStatus=${encodeURIComponent(activeDispatch.dispatchStatus)}&vehicleNumber=${encodeURIComponent(activeDispatch.vehicleNumber)}&officerName=${encodeURIComponent(activeDispatch.officerName)}` : ''}`;
 
   return (
     <Layout title="Predictive Withdrawal Intelligence">
@@ -3043,14 +3125,72 @@ function Prediction() {
                 </div>
               )}
 
+              {/* Active Dispatch Live Alert Card */}
+              {activeDispatch && activeDispatch.dispatchStatus !== 'COMPLETED' && activeDispatch.dispatchStatus !== 'CANCELLED' && (
+                <div
+                  style={{
+                    marginTop: "18px",
+                    padding: "14px 16px",
+                    borderRadius: "10px",
+                    background: "rgba(57, 215, 255, 0.08)",
+                    border: "1px solid rgba(57, 215, 255, 0.35)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: "12px",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "24px" }}>🚓</span>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <strong style={{ color: "#fff", fontSize: "13.5px" }}>
+                          Active Patrol: {activeDispatch.unitCode} ({activeDispatch.vehicleNumber})
+                        </strong>
+                        <span className={`dispatch-status-badge ${activeDispatch.dispatchStatus.toLowerCase()}`}>
+                          {activeDispatch.dispatchStatus}
+                        </span>
+                      </div>
+                      <small style={{ color: "#94a3b8", display: "block", marginTop: "2px" }}>
+                        Officer: {activeDispatch.officerName} • Distance: {activeDispatch.distanceKm} km • ETA: {activeDispatch.estimatedEtaMinutes} mins
+                      </small>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      type="button"
+                      className="small-btn"
+                      style={{ padding: "6px 12px", fontSize: "11.5px" }}
+                      onClick={() => setDispatchModalOpen(true)}
+                    >
+                      📋 Dispatch Dossier
+                    </button>
+                    <Link
+                      to={mapDeepLink}
+                      className="primary-btn"
+                      style={{ padding: "6px 12px", fontSize: "11.5px" }}
+                    >
+                      🗺️ Track on GIS Map
+                    </Link>
+                  </div>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="prediction-actions" style={{ flexWrap: "wrap", marginTop: "20px" }}>
                 <button
                   type="button"
-                  className="danger-btn"
+                  className={activeDispatch && activeDispatch.dispatchStatus !== 'COMPLETED' && activeDispatch.dispatchStatus !== 'CANCELLED' ? "primary-btn" : "danger-btn"}
                   onClick={handleDispatchSectorPatrol}
+                  disabled={isDispatching}
                 >
-                  🚨 Dispatch Sector Mobile Patrol
+                  {isDispatching
+                    ? "⏳ Finding Nearest Sector Patrol Unit..."
+                    : activeDispatch && activeDispatch.dispatchStatus !== 'COMPLETED' && activeDispatch.dispatchStatus !== 'CANCELLED'
+                    ? `🚓 Patrol ${activeDispatch.unitCode} (${activeDispatch.dispatchStatus})`
+                    : "🚨 Dispatch Sector Mobile Patrol"}
                 </button>
 
                 <button
@@ -3061,7 +3201,7 @@ function Prediction() {
                   🔒 Issue Urgent Freeze Mandate
                 </button>
 
-                <Link to={mapDeepLink} className="primary-btn">
+                <Link to={mapDeepLink} className="secondary-btn">
                   🗺️ View on Live GIS Map →
                 </Link>
               </div>
@@ -3069,6 +3209,204 @@ function Prediction() {
           )}
         </div>
       </div>
+
+      {/* TACTICAL PATROL DISPATCH CONFIRMATION MODAL */}
+      {dispatchModalOpen && activeDispatch && (
+        <div className="dispatch-modal-overlay" onClick={() => setDispatchModalOpen(false)}>
+          <div className="dispatch-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="dispatch-modal-header">
+              <div className="dispatch-modal-title-box">
+                <div className="dispatch-modal-icon">🚨</div>
+                <div>
+                  <span style={{ fontSize: "11px", color: "#8ca5bd", textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>
+                    Official Law Enforcement Action
+                  </span>
+                  <h3 style={{ margin: "2px 0 0", fontSize: "18px", color: "#fff" }}>
+                    Sector Mobile Patrol Dispatched
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setDispatchModalOpen(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#94a3b8",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Status & ETA Banner */}
+            <div className="dispatch-status-banner">
+              <div>
+                <span style={{ fontSize: "11px", color: "#94a3b8", display: "block", textTransform: "uppercase" }}>
+                  Dispatch Reference ID
+                </span>
+                <strong style={{ fontSize: "16px", color: "#38bdf8", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {activeDispatch.dispatchId}
+                </strong>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                <span className={`dispatch-status-badge ${activeDispatch.dispatchStatus.toLowerCase()}`}>
+                  ● {activeDispatch.dispatchStatus}
+                </span>
+                <small style={{ display: "block", marginTop: "4px", color: "#cbd5e1" }}>
+                  Est. Arrival: <strong>{activeDispatch.estimatedEtaMinutes} Minutes</strong>
+                </small>
+              </div>
+            </div>
+
+            {/* Lifecycle Timeline */}
+            <div className="dispatch-timeline">
+              <div className={`timeline-node ${['DISPATCHED', 'ACCEPTED', 'EN_ROUTE', 'ON_SCENE', 'COMPLETED'].includes(activeDispatch.dispatchStatus) ? 'completed' : ''}`}>
+                <div className="timeline-dot">1</div>
+                <span>Dispatched</span>
+              </div>
+              <div className={`timeline-node ${['ACCEPTED', 'EN_ROUTE', 'ON_SCENE', 'COMPLETED'].includes(activeDispatch.dispatchStatus) ? 'completed' : activeDispatch.dispatchStatus === 'DISPATCHED' ? 'active' : ''}`}>
+                <div className="timeline-dot">2</div>
+                <span>Accepted</span>
+              </div>
+              <div className={`timeline-node ${['EN_ROUTE', 'ON_SCENE', 'COMPLETED'].includes(activeDispatch.dispatchStatus) ? 'completed' : activeDispatch.dispatchStatus === 'ACCEPTED' ? 'active' : ''}`}>
+                <div className="timeline-dot">3</div>
+                <span>En Route</span>
+              </div>
+              <div className={`timeline-node ${['ON_SCENE', 'COMPLETED'].includes(activeDispatch.dispatchStatus) ? 'completed' : activeDispatch.dispatchStatus === 'EN_ROUTE' ? 'active' : ''}`}>
+                <div className="timeline-dot">4</div>
+                <span>On Scene</span>
+              </div>
+              <div className={`timeline-node ${activeDispatch.dispatchStatus === 'COMPLETED' ? 'completed' : activeDispatch.dispatchStatus === 'ON_SCENE' ? 'active' : ''}`}>
+                <div className="timeline-dot">5</div>
+                <span>Secured</span>
+              </div>
+            </div>
+
+            {/* Dossier Grid */}
+            <div className="dispatch-dossier-grid">
+              <div className="dispatch-dossier-card">
+                <span>Assigned Tactical Unit</span>
+                <strong>{activeDispatch.unitCode}</strong>
+                <small style={{ display: "block", color: "#94a3b8", fontSize: "11px", marginTop: "2px" }}>
+                  Vehicle: {activeDispatch.vehicleNumber}
+                </small>
+              </div>
+
+              <div className="dispatch-dossier-card">
+                <span>Officer in Command</span>
+                <strong>{activeDispatch.officerName}</strong>
+                <small style={{ display: "block", color: "#94a3b8", fontSize: "11px", marginTop: "2px" }}>
+                  Tel: {activeDispatch.officerPhone}
+                </small>
+              </div>
+
+              <div className="dispatch-dossier-card">
+                <span>Target Hotspot Corridor</span>
+                <strong>📍 {activeDispatch.hotspotLocation}</strong>
+                <small style={{ display: "block", color: "#94a3b8", fontSize: "11px", marginTop: "2px" }}>
+                  Coordinates: {activeDispatch.latitude.toFixed(4)}, {activeDispatch.longitude.toFixed(4)}
+                </small>
+              </div>
+
+              <div className="dispatch-dossier-card">
+                <span>Calculated Distance & Speed</span>
+                <strong>{activeDispatch.distanceKm} km (Urban Grid)</strong>
+                <small style={{ display: "block", color: "#94a3b8", fontSize: "11px", marginTop: "2px" }}>
+                  Speed Config: 35 km/h patrol avg
+                </small>
+              </div>
+
+              <div className="dispatch-dossier-card">
+                <span>Incident Reference</span>
+                <strong>{activeDispatch.incidentId}</strong>
+                <small style={{ display: "block", color: "#94a3b8", fontSize: "11px", marginTop: "2px" }}>
+                  Threat: {activeDispatch.threatScore}% ({activeDispatch.riskLevel})
+                </small>
+              </div>
+
+              <div className="dispatch-dossier-card">
+                <span>Crime Pattern</span>
+                <strong>{activeDispatch.crimeCategory || 'ATM Cashout Surge'}</strong>
+                <small style={{ display: "block", color: "#94a3b8", fontSize: "11px", marginTop: "2px" }}>
+                  Dispatched By: {activeDispatch.dispatchedBy}
+                </small>
+              </div>
+            </div>
+
+            {/* Status Transition Control Buttons for Testing / Operations */}
+            <div style={{ marginBottom: "16px", padding: "12px", background: "rgba(14, 25, 42, 0.6)", borderRadius: "8px", border: "1px solid var(--line)" }}>
+              <span style={{ fontSize: "11px", color: "#94a3b8", display: "block", marginBottom: "8px", textTransform: "uppercase", fontFamily: "'JetBrains Mono', monospace" }}>
+                Tactical Status Controller (Simulate Unit Telemetry)
+              </span>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="small-btn"
+                  disabled={dispatchStatusUpdating || activeDispatch.dispatchStatus === 'EN_ROUTE'}
+                  onClick={() => handleUpdateDispatchStatus('EN_ROUTE')}
+                  style={{ fontSize: "11px" }}
+                >
+                  🚗 Set En-Route
+                </button>
+                <button
+                  type="button"
+                  className="small-btn"
+                  disabled={dispatchStatusUpdating || activeDispatch.dispatchStatus === 'ON_SCENE'}
+                  onClick={() => handleUpdateDispatchStatus('ON_SCENE')}
+                  style={{ fontSize: "11px" }}
+                >
+                  📍 Set On-Scene
+                </button>
+                <button
+                  type="button"
+                  className="small-btn"
+                  disabled={dispatchStatusUpdating || activeDispatch.dispatchStatus === 'COMPLETED'}
+                  onClick={() => handleUpdateDispatchStatus('COMPLETED')}
+                  style={{ fontSize: "11px", background: "rgba(34, 197, 94, 0.15)", color: "#4ade80", borderColor: "rgba(34, 197, 94, 0.4)" }}
+                >
+                  ✓ Complete & Secure
+                </button>
+                <button
+                  type="button"
+                  className="small-btn"
+                  disabled={dispatchStatusUpdating || activeDispatch.dispatchStatus === 'CANCELLED'}
+                  onClick={() => handleUpdateDispatchStatus('CANCELLED')}
+                  style={{ fontSize: "11px", background: "rgba(239, 68, 68, 0.15)", color: "#f87171", borderColor: "rgba(239, 68, 68, 0.4)" }}
+                >
+                  ✕ Cancel Dispatch
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="dispatch-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setDispatchModalOpen(false)}
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => {
+                  setDispatchModalOpen(false);
+                  navigate(mapDeepLink);
+                }}
+              >
+                🗺️ View on Live GIS Map →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }
@@ -3329,6 +3667,8 @@ function GISMap({
   atms,
   selectedLocation,
   onSelectLocation,
+  dispatch,
+  onUpdateDispatchStatus,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -3341,6 +3681,7 @@ function GISMap({
   const [showHotspots, setShowHotspots] = useState(true);
   const [showAtms, setShowAtms] = useState(true);
   const [showRadar, setShowRadar] = useState(true);
+  const [showPatrol, setShowPatrol] = useState(true);
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -3397,10 +3738,6 @@ function GISMap({
 
       mapInstanceRef.current = map;
     }
-
-    return () => {
-      // Map cleanup on unmount if needed
-    };
   }, []);
 
   // Update Base Layer
@@ -3421,6 +3758,20 @@ function GISMap({
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
+
+    // If dispatch has both patrol coordinates and target hotspot, fit bounds around both
+    if (dispatch && (dispatch.patrolStartLat || dispatch.patrolLat) && selectedLocation?.coordinates) {
+      const pLat = dispatch.patrolStartLat || dispatch.patrolLat;
+      const pLng = dispatch.patrolStartLng || dispatch.patrolLng;
+      const hLat = selectedLocation.coordinates[0];
+      const hLng = selectedLocation.coordinates[1];
+      const bounds = L.latLngBounds([
+        [pLat, pLng],
+        [hLat, hLng]
+      ]);
+      map.fitBounds(bounds.pad(0.25), { animate: true, duration: 1.2 });
+      return;
+    }
 
     // Highest priority: Selected Hotspot
     if (selectedLocation && selectedLocation.coordinates) {
@@ -3444,9 +3795,9 @@ function GISMap({
         easeLinearity: 0.25,
       });
     }
-  }, [mapCenter, mapZoom, mapBounds, selectedLocation]);
+  }, [mapCenter, mapZoom, mapBounds, selectedLocation, dispatch]);
 
-  // Render Overlays: Heat Circles, Hotspots, ATMs
+  // Render Overlays: Heat Circles, Hotspots, ATMs, Tactical Patrol
   useEffect(() => {
     const map = mapInstanceRef.current;
     const layersGroup = layersGroupRef.current;
@@ -3552,7 +3903,7 @@ function GISMap({
       });
     }
 
-    // 3. Render High-Risk ATM Nodes from real data
+    // 3. Render High-Risk ATM Nodes
     if (showAtms && atms && atms.length > 0) {
       atms.forEach((atm) => {
         const atmIconHtml = `
@@ -3592,7 +3943,68 @@ function GISMap({
         atmMarker.addTo(layersGroup);
       });
     }
-  }, [filteredHotspots, atms, selectedLocation, showHeat, showHotspots, showAtms]);
+
+    // 4. Render Active Sector Mobile Patrol Unit & Route Polyline
+    if (showPatrol && dispatch && (dispatch.patrolStartLat || dispatch.patrolLat)) {
+      const pLat = dispatch.patrolStartLat || dispatch.patrolLat;
+      const pLng = dispatch.patrolStartLng || dispatch.patrolLng;
+
+      const patrolIconHtml = `
+        <div class="gis-patrol-pin" title="Patrol Unit ${dispatch.unitCode || 'PATROL'}">
+          <div class="patrol-radar-pulse"></div>
+          <div class="patrol-beacon">🚓</div>
+          <div class="patrol-label">${dispatch.unitCode || 'PATROL'}</div>
+        </div>
+      `;
+
+      const patrolCustomIcon = L.divIcon({
+        className: "custom-patrol-div-icon",
+        html: patrolIconHtml,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+        popupAnchor: [0, -22],
+      });
+
+      const patrolMarker = L.marker([pLat, pLng], { icon: patrolCustomIcon, zIndexOffset: 1000 });
+
+      const patrolPopup = `
+        <div class="gis-popup-card">
+          <div class="gis-popup-header">
+            <span class="gis-popup-badge high">🚓 ACTIVE PATROL</span>
+            <strong style="color: #38bdf8;">${dispatch.dispatchStatus || 'DISPATCHED'}</strong>
+          </div>
+          <h4 class="gis-popup-title">🚓 Unit: ${dispatch.unitCode || 'PATROL-001'}</h4>
+          <div class="gis-popup-meta">
+            <p><span>Vehicle:</span> <strong>${dispatch.vehicleNumber || 'MH-02-CP-1012'}</strong></p>
+            <p><span>Officer:</span> <strong>${dispatch.officerName || 'Command Officer'}</strong></p>
+            <p><span>Distance:</span> <strong>${dispatch.distanceKm || dispatch.dist || '3.4'} km</strong></p>
+            <p><span>ETA:</span> <strong>${dispatch.estimatedEtaMinutes || dispatch.eta || '7'} mins</strong></p>
+            <p><span>Dispatch ID:</span> <strong>${dispatch.dispatchId || 'DSP-ACTIVE'}</strong></p>
+          </div>
+        </div>
+      `;
+
+      patrolMarker.bindPopup(patrolPopup, {
+        className: "cybex-leaflet-popup",
+        closeButton: true,
+      });
+
+      patrolMarker.addTo(layersGroup);
+
+      // Draw Tactical Response Polyline Route from Patrol -> Hotspot
+      if (selectedLocation && selectedLocation.coordinates) {
+        const targetPoint = selectedLocation.coordinates;
+        const polyline = L.polyline([[pLat, pLng], targetPoint], {
+          color: '#38bdf8',
+          weight: 3.5,
+          opacity: 0.85,
+          dashArray: '6, 8',
+          lineCap: 'round',
+        });
+        polyline.addTo(layersGroup);
+      }
+    }
+  }, [filteredHotspots, atms, selectedLocation, showHeat, showHotspots, showAtms, showPatrol, dispatch]);
 
   return (
     <div className="gis-map-wrapper">
@@ -3601,6 +4013,75 @@ function GISMap({
 
       {/* Optional Radar Sweep HUD */}
       {showRadar && <div className="gis-radar-sweep-overlay" />}
+
+      {/* Floating Tactical Dispatch HUD Overlay on Map */}
+      {dispatch && (
+        <div className="gis-dispatch-floating-hud">
+          <div className="gis-dispatch-hud-header">
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span>🚓</span>
+              <strong style={{ fontSize: "13px", color: "#38bdf8" }}>
+                {dispatch.unitCode || 'PATROL'} ({dispatch.vehicleNumber || 'UNIT'})
+              </strong>
+            </div>
+            <span className={`dispatch-status-badge ${(dispatch.dispatchStatus || 'dispatched').toLowerCase()}`} style={{ fontSize: "10px", padding: "2px 8px" }}>
+              {dispatch.dispatchStatus || 'DISPATCHED'}
+            </span>
+          </div>
+
+          <div className="gis-dispatch-hud-stats">
+            <div>
+              <span>Officer in Command</span>
+              <strong>{dispatch.officerName || 'Officer'}</strong>
+            </div>
+            <div>
+              <span>Estimated ETA</span>
+              <strong style={{ color: "#38bdf8" }}>{dispatch.estimatedEtaMinutes || dispatch.eta || '5'} Minutes</strong>
+            </div>
+            <div>
+              <span>Distance</span>
+              <strong>{dispatch.distanceKm || dispatch.dist || '2.8'} km</strong>
+            </div>
+            <div>
+              <span>Dispatch Ref</span>
+              <strong>{dispatch.dispatchId || 'DSP-ACTIVE'}</strong>
+            </div>
+          </div>
+
+          {onUpdateDispatchStatus && dispatch.dispatchStatus !== 'COMPLETED' && dispatch.dispatchStatus !== 'CANCELLED' && (
+            <div style={{ display: "flex", gap: "6px", borderTop: "1px solid rgba(140,165,189,0.15)", paddingTop: "8px" }}>
+              {dispatch.dispatchStatus === 'DISPATCHED' && (
+                <button
+                  type="button"
+                  className="small-btn"
+                  style={{ fontSize: "10.5px", padding: "4px 8px" }}
+                  onClick={() => onUpdateDispatchStatus('EN_ROUTE')}
+                >
+                  🚗 Set En-Route
+                </button>
+              )}
+              {(dispatch.dispatchStatus === 'DISPATCHED' || dispatch.dispatchStatus === 'EN_ROUTE') && (
+                <button
+                  type="button"
+                  className="small-btn"
+                  style={{ fontSize: "10.5px", padding: "4px 8px" }}
+                  onClick={() => onUpdateDispatchStatus('ON_SCENE')}
+                >
+                  📍 Set On-Scene
+                </button>
+              )}
+              <button
+                type="button"
+                className="small-btn"
+                style={{ fontSize: "10.5px", padding: "4px 8px", background: "rgba(34,197,94,0.15)", color: "#4ade80", borderColor: "rgba(34,197,94,0.4)" }}
+                onClick={() => onUpdateDispatchStatus('COMPLETED')}
+              >
+                ✓ Secure Zone
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Floating HUD Controls */}
       <div className="gis-hud-top-left">
@@ -3660,6 +4141,14 @@ function GISMap({
           </button>
           <button
             type="button"
+            className={`gis-toggle-btn ${showPatrol ? "on" : ""}`}
+            onClick={() => setShowPatrol(!showPatrol)}
+            title="Toggle Patrol Interceptors"
+          >
+            🚓 Patrol
+          </button>
+          <button
+            type="button"
             className={`gis-toggle-btn ${showRadar ? "on" : ""}`}
             onClick={() => setShowRadar(!showRadar)}
             title="Toggle Live Radar HUD"
@@ -3695,6 +4184,17 @@ function Heatmap() {
   const paramState = searchParams.get("state");
   const paramDistrict = searchParams.get("district");
 
+  // Tactical Dispatch URL Parameters
+  const paramDispatchId = searchParams.get("dispatchId");
+  const paramPatrolLat = searchParams.get("patrolLat");
+  const paramPatrolLng = searchParams.get("patrolLng");
+  const paramUnitCode = searchParams.get("unitCode");
+  const paramEta = searchParams.get("eta");
+  const paramDist = searchParams.get("dist");
+  const paramDispatchStatus = searchParams.get("dispatchStatus");
+  const paramVehicleNumber = searchParams.get("vehicleNumber");
+  const paramOfficerName = searchParams.get("officerName");
+
   const [selectedState, setSelectedState] = useState(paramState || "Maharashtra");
   const [selectedDistrict, setSelectedDistrict] = useState(paramDistrict || "");
   const initialStateGeo = getStateGeo(paramState || "Maharashtra");
@@ -3718,6 +4218,57 @@ function Heatmap() {
   const [atms, setAtms] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [loadingHotspots, setLoadingHotspots] = useState(false);
+
+  // Active Dispatch State on Map
+  const [dispatchData, setDispatchData] = useState(() => {
+    if (paramDispatchId || paramPatrolLat) {
+      return {
+        dispatchId: paramDispatchId || "DSP-2026-ACTIVE",
+        patrolLat: paramPatrolLat ? parseFloat(paramPatrolLat) : 19.1136,
+        patrolLng: paramPatrolLng ? parseFloat(paramPatrolLng) : 72.8697,
+        patrolStartLat: paramPatrolLat ? parseFloat(paramPatrolLat) : 19.1136,
+        patrolStartLng: paramPatrolLng ? parseFloat(paramPatrolLng) : 72.8697,
+        unitCode: paramUnitCode || "PATROL-001",
+        vehicleNumber: paramVehicleNumber || "MH-02-CP-1012",
+        officerName: paramOfficerName || "Insp. Rajesh Shinde",
+        distanceKm: paramDist ? parseFloat(paramDist) : 3.2,
+        estimatedEtaMinutes: paramEta ? parseInt(paramEta, 10) : 6,
+        dispatchStatus: paramDispatchStatus || "DISPATCHED"
+      };
+    }
+    return null;
+  });
+
+  // Fetch full dispatch if dispatchId present
+  useEffect(() => {
+    if (paramDispatchId) {
+      fetch(`http://localhost:3001/api/dispatches/${encodeURIComponent(paramDispatchId)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && !data.error) {
+            setDispatchData(data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [paramDispatchId]);
+
+  async function handleMapUpdateDispatchStatus(newStatus) {
+    if (!dispatchData || !dispatchData.dispatchId) return;
+    try {
+      const res = await fetch(`http://localhost:3001/api/dispatches/${encodeURIComponent(dispatchData.dispatchId)}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (data.success && data.dispatch) {
+        setDispatchData(data.dispatch);
+      }
+    } catch (err) {
+      console.error("Failed to update dispatch status on map:", err);
+    }
+  }
 
   // Handle URL query parameters for deep linking from Prediction / Complaint
   useEffect(() => {
@@ -3898,7 +4449,7 @@ function Heatmap() {
         <div>
           <h2>Predictive Geospatial Intelligence</h2>
           <p>
-            Interactive multi-layer GIS mapping of cyber fraud withdrawal risk
+            Interactive multi-layer GIS mapping of cyber fraud withdrawal risk and tactical patrol routing
           </p>
         </div>
       </div>
@@ -3954,7 +4505,9 @@ function Heatmap() {
             filteredHotspots={filteredHotspots}
             atms={atms}
             selectedLocation={selectedLocation}
-            onSelectLocation={setSelectedLocation}
+            onSelectLocation={(loc) => setSelectedLocation(loc)}
+            dispatch={dispatchData}
+            onUpdateDispatchStatus={handleMapUpdateDispatchStatus}
           />
         </div>
 

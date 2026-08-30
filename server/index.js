@@ -16,14 +16,22 @@ const AuditLog = require('./models/AuditLog');
 const ATM = require('./models/ATM');
 const Alert = require('./models/Alert');
 const Report = require('./models/Report');
+const PatrolUnit = require('./models/PatrolUnit');
+const Dispatch = require('./models/Dispatch');
 const { generateReport, initializeReportsIfEmpty } = require('./reportService');
 const { seedDefaultUsers } = require('./seedUsers');
+const { seedPatrolUnits } = require('./seedPatrolUnits');
 const authRoutes = require('./routes/auth');
+const dispatchRoutes = require('./routes/dispatchRoutes');
 const multer = require('multer');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Mount routers
+app.use('/api/auth', authRoutes);
+app.use('/api', dispatchRoutes);
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -44,6 +52,7 @@ sequelize.sync().then(async () => {
   console.log("Database connected successfully.");
   try {
     await seedDefaultUsers();
+    await seedPatrolUnits();
     await initializeReportsIfEmpty();
   } catch (err) {
     console.error("Error initializing baseline data:", err);
