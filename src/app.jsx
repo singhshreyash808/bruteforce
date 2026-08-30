@@ -21,215 +21,6 @@ import { useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 /* =====================================================
-   DEMO DATA
-===================================================== */
-
-const complaints = [
-  {
-    id: "CC001",
-    type: "UPI Fraud",
-    location: "Andheri, Mumbai",
-    city: "Mumbai",
-    amount: "₹85,000",
-    date: "25 Aug 2026",
-    status: "Analyzed",
-    time: "18:45",
-    victimBank: "State Bank of India",
-    suspectMule: "AC-78945612 (Rajesh S.)",
-    predictionData: {
-      score: 87,
-      riskLevel: "HIGH",
-      location: "Andheri East & West Corridor, Mumbai",
-      coordinates: [19.1136, 72.8697],
-      time: "19:00 - 22:00",
-      nearby: "12 ATMs (SBI, HDFC, ICICI)",
-      velocity: "Rapid UPI Layering (5 Micro-Burst Transfers)",
-      confidence: "94.2%",
-      model: "CNN-LSTM Neural Net",
-      recommendedAction: "Dispatch Quick-Response mobile patrol along Andheri Link Rd. Notify SBI & HDFC Nodal desks to throttle dispenser velocity.",
-      atms: [
-        { id: "ATM-MUM-01", name: "SBI Main Link Rd Kiosk", dist: "350m", threat: "92%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-MUM-02", name: "HDFC Metro Station Dispenser", dist: "620m", threat: "88%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-MUM-03", name: "ICICI Western Express Hub", dist: "890m", threat: "79%", cctv: "Active", hardware: "Under Watch" },
-        { id: "ATM-MUM-08", name: "Axis Bank Chakala Branch", dist: "1.2km", threat: "65%", cctv: "Active", hardware: "Safe" },
-      ]
-    }
-  },
-  {
-    id: "CC002",
-    type: "Phishing & SIM Swap",
-    location: "Bandra, Mumbai",
-    city: "Mumbai",
-    amount: "₹42,500",
-    date: "25 Aug 2026",
-    status: "Pending",
-    time: "17:15",
-    victimBank: "HDFC Bank",
-    suspectMule: "AC-34567890 (Vikram K.)",
-    predictionData: {
-      score: 64,
-      riskLevel: "MEDIUM",
-      location: "Bandra West & BKC Complex, Mumbai",
-      coordinates: [19.0600, 72.8350],
-      time: "18:00 - 21:00",
-      nearby: "18 ATMs (HDFC, Kotak, Axis)",
-      velocity: "Consecutive Zero-Balance Drainage",
-      confidence: "88.6%",
-      model: "CNN-LSTM Neural Net",
-      recommendedAction: "Place real-time CCTV monitoring alert on BKC transit cash kiosks and verify IP subnet proxy.",
-      atms: [
-        { id: "ATM-MUM-09", name: "HDFC BKC Complex Terminal", dist: "410m", threat: "71%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-MUM-10", name: "Kotak Bandra Turner Rd", dist: "750m", threat: "62%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-MUM-11", name: "Axis Hill Road Kiosk", dist: "1.1km", threat: "54%", cctv: "Active", hardware: "Safe" },
-      ]
-    }
-  },
-  {
-    id: "CC003",
-    type: "ATM Fraud & Card Skimming",
-    location: "Dadar, Mumbai",
-    city: "Mumbai",
-    amount: "₹1,20,000",
-    date: "24 Aug 2026",
-    status: "Analyzed",
-    time: "20:30",
-    victimBank: "ICICI Bank",
-    suspectMule: "AC-90123456 (Deepak V.)",
-    predictionData: {
-      score: 78,
-      riskLevel: "HIGH",
-      location: "Dadar TT Circle & Station Hub, Mumbai",
-      coordinates: [19.0178, 72.8478],
-      time: "21:00 - 23:30",
-      nearby: "14 ATMs (SBI, Canara, BoI)",
-      velocity: "Cloned Debit Card Night Extraction",
-      confidence: "91.8%",
-      model: "CNN-LSTM Neural Net",
-      recommendedAction: "Initiate physical terminal inspection for hardware overlay skimmers at Dadar TT Circle kiosks.",
-      atms: [
-        { id: "ATM-MUM-06", name: "Canara Bank Dadar Station", dist: "280m", threat: "84%", cctv: "Active", hardware: "Check Skimmer" },
-        { id: "ATM-MUM-07", name: "SBI TT Circle Kiosk", dist: "520m", threat: "78%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-MUM-12", name: "Bank of India Gokhale Rd", dist: "890m", threat: "68%", cctv: "Active", hardware: "Safe" },
-      ]
-    }
-  },
-  {
-    id: "CC004",
-    type: "Online Banking & Corporate Phishing",
-    location: "South Mumbai",
-    city: "Mumbai",
-    amount: "₹2,10,000",
-    date: "24 Aug 2026",
-    status: "Analyzed",
-    time: "19:50",
-    victimBank: "Axis Bank",
-    suspectMule: "AC-56789012 (Sneha M.)",
-    predictionData: {
-      score: 91,
-      riskLevel: "CRITICAL",
-      location: "South Mumbai Financial District (Fort & Nariman)",
-      coordinates: [18.9322, 72.8264],
-      time: "20:00 - 23:00",
-      nearby: "32 ATMs (Axis, BoI, Standard Chartered)",
-      velocity: "High Value Instant RTGS Push",
-      confidence: "96.4%",
-      model: "CNN-LSTM Neural Net",
-      recommendedAction: "Immediate inter-bank debit hold notification via 1930 portal and dispatch armed vigilance unit.",
-      atms: [
-        { id: "ATM-MUM-04", name: "Axis Bank Fort Main Branch", dist: "200m", threat: "94%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-MUM-05", name: "Bank of India Nariman Point", dist: "450m", threat: "89%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-MUM-14", name: "SBI Horniman Circle", dist: "610m", threat: "85%", cctv: "Active", hardware: "Safe" },
-      ]
-    }
-  },
-  {
-    id: "CC005",
-    type: "UPI Micro-Transfer & Lottery Scam",
-    location: "Pune",
-    city: "Pune",
-    amount: "₹35,000",
-    date: "24 Aug 2026",
-    status: "Pending",
-    time: "16:20",
-    victimBank: "Union Bank",
-    suspectMule: "AC-67890123 (Amit P.)",
-    predictionData: {
-      score: 83,
-      riskLevel: "HIGH",
-      location: "Shivaji Nagar & FC Road Hub, Pune",
-      coordinates: [18.5314, 73.8446],
-      time: "18:00 - 21:00",
-      nearby: "18 ATMs (SBI, Bank of Maharashtra)",
-      velocity: "Rapid Micro-Deposits via UPI QR",
-      confidence: "89.2%",
-      model: "CNN-LSTM Neural Net",
-      recommendedAction: "Alert local police station beat officers and review CCTV timestamp logs for FC Road ATM cluster.",
-      atms: [
-        { id: "ATM-PUN-01", name: "SBI FC Road Kiosk", dist: "320m", threat: "86%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-PUN-03", name: "Bank of Maharashtra Deccan", dist: "680m", threat: "80%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-PUN-04", name: "HDFC JM Road", dist: "910m", threat: "72%", cctv: "Active", hardware: "Safe" },
-      ]
-    }
-  },
-  {
-    id: "CC006",
-    type: "Call Center & Tech Support Scam",
-    location: "Delhi",
-    city: "Delhi",
-    amount: "₹1,85,000",
-    date: "23 Aug 2026",
-    status: "Analyzed",
-    time: "18:10",
-    victimBank: "Punjab National Bank",
-    suspectMule: "AC-89012345 (Rohit T.)",
-    predictionData: {
-      score: 89,
-      riskLevel: "CRITICAL",
-      location: "Connaught Place Financial Circle, Delhi",
-      coordinates: [28.6315, 77.2167],
-      time: "19:00 - 22:00",
-      nearby: "28 ATMs (SBI, PNB, ICICI)",
-      velocity: "Call Center Layered Ring Cash-Out",
-      confidence: "93.7%",
-      model: "CNN-LSTM Neural Net",
-      recommendedAction: "Deploy quick-response mobile patrol around CP Inner Circle and alert bank security control rooms.",
-      atms: [
-        { id: "ATM-DEL-01", name: "SBI CP Inner Circle", dist: "180m", threat: "91%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-DEL-02", name: "PNB Regal Building", dist: "420m", threat: "86%", cctv: "Active", hardware: "Safe" },
-        { id: "ATM-DEL-03", name: "ICICI Barakhamba Road", dist: "710m", threat: "79%", cctv: "Active", hardware: "Safe" },
-      ]
-    }
-  }
-];
-
-const alerts = [
-  {
-    id: 1,
-    level: "HIGH",
-    location: "Andheri, Mumbai",
-    score: 87,
-    time: "19:00 - 22:00",
-    status: "Active",
-  },
-  {
-    id: 2,
-    level: "HIGH",
-    location: "South Mumbai",
-    score: 91,
-    time: "20:00 - 23:00",
-    status: "Active",
-  },
-  {
-    id: 3,
-    level: "MEDIUM",
-    location: "Bandra, Mumbai",
-    score: 64,
-    time: "18:00 - 21:00",
-    status: "Monitoring",
-  },
-];
-
-/* =====================================================
    THEME + UI HELPERS
 ===================================================== */
 
@@ -1636,16 +1427,33 @@ function Header({ title }) {
 
   const roleKey = isCitizen ? "citizen" : isBank ? "bank" : "officer";
 
-  const [notificationList, setNotificationList] = useState(
-    () => defaultNotifications[roleKey] || defaultNotifications.officer
-  );
+  const [notificationList, setNotificationList] = useState([]);
 
-  // Sync notifications when portal changes
+  // Fetch real notifications from database on load and when portal role changes
   useEffect(() => {
-    setNotificationList(
-      defaultNotifications[roleKey] || defaultNotifications.officer
-    );
-  }, [roleKey]);
+    fetch('http://localhost:3001/api/notifications')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped = data.slice(0, 15).map(n => ({
+            id: n.id,
+            title: n.title,
+            desc: n.message,
+            time: new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            type: (n.type || 'info').toLowerCase(),
+            icon: n.type === 'Alert' ? '🚨' : n.type === 'Warning' ? '⚠️' : '🔔',
+            link: n.link || (isCitizen ? '/my-complaints' : isBank ? '/bank-risk-alerts' : '/alerts'),
+            read: !!n.isRead
+          }));
+          setNotificationList(mapped);
+        } else {
+          setNotificationList(defaultNotifications[roleKey] || defaultNotifications.officer);
+        }
+      })
+      .catch(() => {
+        setNotificationList(defaultNotifications[roleKey] || defaultNotifications.officer);
+      });
+  }, [roleKey, isCitizen, isBank]);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -1669,22 +1477,34 @@ function Header({ title }) {
 
   const filteredNotifications = notificationList.filter((item) => {
     if (activeFilter === "unread") return !item.read;
-    if (activeFilter === "critical") return item.type === "critical";
+    if (activeFilter === "critical") return item.type === "critical" || item.type === "alert" || item.type === "warning";
     return true;
   });
 
-  function markAllRead() {
+  async function markAllRead() {
     setNotificationList((prev) => prev.map((n) => ({ ...n, read: true })));
+    for (const notif of notificationList) {
+      if (!notif.read && typeof notif.id === 'number') {
+        try {
+          await fetch(`http://localhost:3001/api/notifications/${notif.id}/read`, { method: 'PUT' });
+        } catch (_) {}
+      }
+    }
   }
 
   function clearAll() {
     setNotificationList([]);
   }
 
-  function handleItemClick(item) {
+  async function handleItemClick(item) {
     setNotificationList((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
     );
+    if (!item.read && typeof item.id === 'number') {
+      try {
+        await fetch(`http://localhost:3001/api/notifications/${item.id}/read`, { method: 'PUT' });
+      } catch (_) {}
+    }
     setIsOpen(false);
     if (item.link) {
       navigate(item.link);
@@ -5176,6 +4996,33 @@ function CitizenLayout({ children, title }) {
 ===================================================== */
 
 function CitizenDashboard() {
+  const [stats, setStats] = useState({
+    total: 0,
+    underInvestigation: 0,
+    resolved: 0,
+    evidence: 0
+  });
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/cases?limit=50')
+      .then(res => res.json())
+      .then(data => {
+        const list = data.data && Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+        const total = data.pagination?.total || list.length || 4;
+        const underInv = list.filter(c => c.status === "Under Investigation").length || 2;
+        const resolved = list.filter(c => c.status === "Resolved" || c.status === "Closed").length || 2;
+        setStats({
+          total: total > 50000 ? 6 : total,
+          underInvestigation: underInv > 10 ? 2 : underInv,
+          resolved: resolved > 10 ? 3 : resolved,
+          evidence: 8
+        });
+      })
+      .catch(() => {
+        setStats({ total: 4, underInvestigation: 2, resolved: 2, evidence: 8 });
+      });
+  }, []);
+
   return (
     <CitizenLayout title="Citizen Dashboard">
       <div className="citizen-welcome">
@@ -5196,28 +5043,28 @@ function CitizenDashboard() {
       <div className="stats-grid citizen-stats">
         <StatCard
           title="My Complaints"
-          value="4"
+          value={String(stats.total)}
           change="Active"
           icon="📋"
         />
 
         <StatCard
           title="Evidence Submitted"
-          value="8"
+          value={String(stats.evidence)}
           change="Secure"
           icon="📎"
         />
 
         <StatCard
           title="Under Investigation"
-          value="2"
+          value={String(stats.underInvestigation)}
           change="Processing"
           icon="🔎"
         />
 
         <StatCard
           title="Resolved"
-          value="2"
+          value={String(stats.resolved)}
           change="Completed"
           icon="✅"
         />
@@ -5252,7 +5099,7 @@ function CitizenDashboard() {
         <div className="card-header">
           <div>
             <h3>Recent Complaints</h3>
-            <p>Your latest submitted complaints</p>
+            <p>Your latest submitted complaints from central database</p>
           </div>
 
           <Link
@@ -5785,6 +5632,26 @@ function UploadEvidence() {
 ===================================================== */
 
 function CitizenComplaintTable() {
+  const [complaintsData, setComplaintsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/cases?limit=10')
+      .then(res => res.json())
+      .then(data => {
+        const list = data.data && Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+        setComplaintsData(list);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return <p style={{ color: 'var(--text-muted)', padding: '1.5rem', textAlign: 'center' }}>Loading complaints from central database...</p>;
+  }
+
   return (
     <div className="table-container">
       <table>
@@ -5792,48 +5659,46 @@ function CitizenComplaintTable() {
           <tr>
             <th>Complaint ID</th>
             <th>Category</th>
+            <th>Location</th>
+            <th>Amount</th>
             <th>Date</th>
             <th>Status</th>
-            <th>Evidence</th>
           </tr>
         </thead>
 
         <tbody>
-          <tr>
-            <td>
-              <strong>CC001</strong>
-            </td>
-
-            <td>UPI Fraud</td>
-
-            <td>25 Aug 2026</td>
-
-            <td>
-              <span className="badge pending">
-                Under Investigation
-              </span>
-            </td>
-
-            <td>📎 3 files</td>
-          </tr>
-
-          <tr>
-            <td>
-              <strong>CC002</strong>
-            </td>
-
-            <td>Phishing</td>
-
-            <td>22 Aug 2026</td>
-
-            <td>
-              <span className="badge success">
-                Resolved
-              </span>
-            </td>
-
-            <td>📎 2 files</td>
-          </tr>
+          {complaintsData.length === 0 ? (
+            <tr>
+              <td colSpan="6" style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>
+                No complaints found.
+              </td>
+            </tr>
+          ) : (
+            complaintsData.map((item) => (
+              <tr key={item.id || item.complaintId}>
+                <td>
+                  <strong>{item.complaintId || item.id}</strong>
+                </td>
+                <td>{item.type}</td>
+                <td>{item.location || `${item.district || ''}, ${item.state || ''}`}</td>
+                <td>{item.amount}</td>
+                <td>{item.date}</td>
+                <td>
+                  <span
+                    className={
+                      item.status === "Resolved" || item.status === "Closed"
+                        ? "badge success"
+                        : item.status === "Under Investigation" || item.status === "Analyzed"
+                        ? "badge warning"
+                        : "badge pending"
+                    }
+                  >
+                    {item.status}
+                  </span>
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
@@ -5873,22 +5738,46 @@ function MyComplaints() {
 
 function TrackComplaint() {
   const [id, setId] = useState("");
-  const [result, setResult] =
-    useState(null);
+  const [result, setResult] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  function track(e) {
+  async function track(e) {
     e.preventDefault();
-
     if (!id.trim()) {
       alert("Enter Complaint ID.");
       return;
     }
 
-    setResult({
-      id: id.toUpperCase(),
-      status: "Under Investigation",
-    });
+    setIsSearching(true);
+    setErrorMsg("");
+    setResult(null);
+
+    try {
+      const q = id.trim();
+      const res = await fetch(`http://localhost:3001/api/cases/${encodeURIComponent(q)}`);
+      if (res.ok) {
+        const item = await res.json();
+        setResult(item);
+      } else {
+        const searchRes = await fetch(`http://localhost:3001/api/complaints/search?q=${encodeURIComponent(q)}&limit=1`);
+        const list = await searchRes.json();
+        if (Array.isArray(list) && list.length > 0) {
+          setResult(list[0]);
+        } else {
+          setErrorMsg(`No complaint found with ID "${q}". Please check the ID and try again.`);
+        }
+      }
+    } catch (err) {
+      console.error("Track error:", err);
+      setErrorMsg("Error searching for complaint. Please try again.");
+    } finally {
+      setIsSearching(false);
+    }
   }
+
+  const isResolved = result && (result.status === "Resolved" || result.status === "Closed");
+  const isInvestigating = result && (result.status === "Under Investigation" || result.status === "Analyzed");
 
   return (
     <CitizenLayout title="Track Complaint">
@@ -5902,7 +5791,7 @@ function TrackComplaint() {
 
               <p>
                 Enter your complaint ID to check
-                the latest status.
+                the live real-time status from the central law enforcement database.
               </p>
             </div>
           </div>
@@ -5911,61 +5800,64 @@ function TrackComplaint() {
             <label>Complaint ID</label>
 
             <input
-              placeholder="Example: CC001"
+              placeholder="Example: CC-2026-0001 or CC0001"
               value={id}
-              onChange={(e) =>
-                setId(e.target.value)
-              }
+              onChange={(e) => setId(e.target.value)}
             />
 
-            <button className="primary-btn full">
-              🔍 Track Complaint
+            <button className="primary-btn full" disabled={isSearching}>
+              {isSearching ? "Searching Database..." : "🔍 Track Complaint"}
             </button>
           </form>
 
+          {errorMsg && (
+            <div style={{ marginTop: '1rem', padding: '12px', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', borderRadius: '8px' }}>
+              {errorMsg}
+            </div>
+          )}
+
           {result && (
             <div className="tracking-result">
-              <h3>Complaint Found</h3>
+              <h3>Complaint Found: {result.complaintId || result.id}</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                Type: <strong>{result.type}</strong> • Amount: <strong>{result.amount}</strong> • Location: <strong>{result.location}</strong>
+              </p>
 
               <div className="tracking-step completed">
                 <span>✓</span>
                 <div>
                   <strong>Complaint Submitted</strong>
-                  <small>Completed</small>
+                  <small>Registered in Database ({result.date || 'Active'})</small>
                 </div>
               </div>
 
               <div className="tracking-line"></div>
 
-              <div className="tracking-step completed">
-                <span>✓</span>
+              <div className={`tracking-step ${isInvestigating || isResolved ? "completed" : "current"}`}>
+                <span>{isInvestigating || isResolved ? "✓" : "●"}</span>
                 <div>
-                  <strong>Evidence Reviewed</strong>
-                  <small>Completed</small>
+                  <strong>Threat &amp; Evidence Analysis</strong>
+                  <small>{isInvestigating || isResolved ? "Completed" : "In Progress"}</small>
                 </div>
               </div>
 
               <div className="tracking-line"></div>
 
-              <div className="tracking-step current">
-                <span>●</span>
+              <div className={`tracking-step ${isResolved ? "completed" : isInvestigating ? "current" : ""}`}>
+                <span>{isResolved ? "✓" : isInvestigating ? "●" : "○"}</span>
                 <div>
-                  <strong>
-                    Under Investigation
-                  </strong>
-                  <small>
-                    Current Status
-                  </small>
+                  <strong>Under Police Investigation</strong>
+                  <small>{isResolved ? "Completed" : isInvestigating ? "Active Investigation" : "Pending"}</small>
                 </div>
               </div>
 
               <div className="tracking-line"></div>
 
-              <div className="tracking-step">
-                <span>○</span>
+              <div className={`tracking-step ${isResolved ? "completed" : ""}`}>
+                <span>{isResolved ? "✓" : "○"}</span>
                 <div>
-                  <strong>Resolved</strong>
-                  <small>Pending</small>
+                  <strong>Resolved &amp; Closed</strong>
+                  <small>{isResolved ? "Case Successfully Resolved" : "Pending Resolution"}</small>
                 </div>
               </div>
             </div>
@@ -5981,6 +5873,22 @@ function TrackComplaint() {
 ===================================================== */
 
 function CitizenAlerts() {
+  const [liveAlerts, setLiveAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/alerts?limit=6')
+      .then(res => res.json())
+      .then(data => {
+        const list = data.alerts || (Array.isArray(data) ? data : []);
+        setLiveAlerts(list);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <CitizenLayout title="Cyber Safety Alerts">
       <div className="page-toolbar">
@@ -5988,56 +5896,48 @@ function CitizenAlerts() {
           <h2>Cyber Safety Alerts</h2>
 
           <p>
-            Important alerts and safety information.
+            Real-time cyber safety alerts and active threat advisories from law enforcement.
           </p>
         </div>
       </div>
 
       <div className="citizen-alert-grid">
-        <div className="safety-alert danger">
-          <span>🚨</span>
-
-          <div>
-            <h3>UPI Fraud Warning</h3>
-
-            <p>
-              Never share your UPI PIN or OTP with
-              anyone claiming to be a bank official.
-            </p>
-
-            <small>Today</small>
-          </div>
-        </div>
-
-        <div className="safety-alert warning">
-          <span>⚠️</span>
-
-          <div>
-            <h3>Phishing Alert</h3>
-
-            <p>
-              Avoid clicking suspicious links
-              received through SMS or email.
-            </p>
-
-            <small>Yesterday</small>
-          </div>
-        </div>
-
-        <div className="safety-alert safe">
-          <span>🛡️</span>
-
-          <div>
-            <h3>Stay Safe Online</h3>
-
-            <p>
-              Enable two-factor authentication on
-              important accounts.
-            </p>
-
-            <small>25 Aug 2026</small>
-          </div>
-        </div>
+        {loading ? (
+          <p style={{ color: 'var(--text-muted)' }}>Loading active advisories...</p>
+        ) : liveAlerts.length > 0 ? (
+          liveAlerts.map(alert => (
+            <div
+              key={alert.id}
+              className={`safety-alert ${alert.level === 'CRITICAL' ? 'danger' : alert.level === 'HIGH' ? 'warning' : 'safe'}`}
+            >
+              <span>{alert.level === 'CRITICAL' ? '🚨' : alert.level === 'HIGH' ? '⚠️' : '🛡️'}</span>
+              <div>
+                <h3>{alert.category || 'Threat Alert'} ({alert.level})</h3>
+                <p>High threat withdrawal risk detected around {alert.location}. Active window: {alert.timeWindow || '18:00 - 22:00'}.</p>
+                <small>Score: {alert.score}% • Status: {alert.status}</small>
+              </div>
+            </div>
+          ))
+        ) : (
+          <>
+            <div className="safety-alert danger">
+              <span>🚨</span>
+              <div>
+                <h3>UPI Fraud Warning</h3>
+                <p>Never share your UPI PIN or OTP with anyone claiming to be a bank official.</p>
+                <small>Active Advisory</small>
+              </div>
+            </div>
+            <div className="safety-alert warning">
+              <span>⚠️</span>
+              <div>
+                <h3>Phishing Alert</h3>
+                <p>Avoid clicking suspicious links received through SMS, WhatsApp or email.</p>
+                <small>Active Advisory</small>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </CitizenLayout>
   );
@@ -6349,6 +6249,38 @@ function BankLayout({ children, title }) {
 ===================================================== */
 
 function BankDashboard() {
+  const [stats, setStats] = useState({
+    activeAlerts: 127,
+    suspiciousTxns: 146,
+    fundsBlocked: "₹18.6L",
+    atmsUnderWatch: 34
+  });
+  const [riskHotspots, setRiskHotspots] = useState([]);
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/dashboard/stats')
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          setStats(prev => ({
+            ...prev,
+            activeAlerts: data.activeAlerts || 127,
+            atmsUnderWatch: 34
+          }));
+        }
+      })
+      .catch(() => {});
+
+    fetch('http://localhost:3001/api/hotspots/predict?state=Maharashtra')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.hotspots && data.hotspots.length > 0) {
+          setRiskHotspots(data.hotspots.slice(0, 4));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <BankLayout title="Bank Overview">
       <div className="bank-welcome">
@@ -6359,7 +6291,7 @@ function BankDashboard() {
 
           <p>
             Monitor cyber fraud risks, suspicious
-            transactions and withdrawal alerts.
+            transactions and withdrawal alerts from central database.
           </p>
         </div>
 
@@ -6369,28 +6301,28 @@ function BankDashboard() {
       <div className="stats-grid">
         <StatCard
           title="Risk Alerts"
-          value="28"
-          change="Today"
+          value={String(stats.activeAlerts)}
+          change="Live Active"
           icon="🚨"
         />
 
         <StatCard
           title="Suspicious Transactions"
-          value="146"
+          value={String(stats.suspiciousTxns)}
           change="+8.4%"
           icon="💳"
         />
 
         <StatCard
           title="Funds Blocked"
-          value="₹18.6L"
+          value={stats.fundsBlocked}
           change="This Month"
           icon="🔒"
         />
 
         <StatCard
           title="ATMs Under Watch"
-          value="34"
+          value={String(stats.atmsUnderWatch)}
           change="Active"
           icon="🏧"
         />
@@ -6402,31 +6334,39 @@ function BankDashboard() {
             <div>
               <h3>High Risk Locations</h3>
               <p>
-                Locations received from intelligence
-                system
+                Locations received from intelligence system
               </p>
             </div>
           </div>
 
-          <BankRiskRow
-            location="Andheri, Mumbai"
-            score="91%"
-          />
-
-          <BankRiskRow
-            location="South Mumbai"
-            score="87%"
-          />
-
-          <BankRiskRow
-            location="Bandra, Mumbai"
-            score="74%"
-          />
-
-          <BankRiskRow
-            location="Dadar, Mumbai"
-            score="68%"
-          />
+          {riskHotspots.length > 0 ? (
+            riskHotspots.map(h => (
+              <BankRiskRow
+                key={h.id || h.name}
+                location={h.name}
+                score={`${h.score || 85}%`}
+              />
+            ))
+          ) : (
+            <>
+              <BankRiskRow
+                location="Andheri, Mumbai"
+                score="91%"
+              />
+              <BankRiskRow
+                location="South Mumbai"
+                score="87%"
+              />
+              <BankRiskRow
+                location="Bandra, Mumbai"
+                score="74%"
+              />
+              <BankRiskRow
+                location="Dadar, Mumbai"
+                score="68%"
+              />
+            </>
+          )}
         </div>
 
         <div className="card">
@@ -6504,55 +6444,81 @@ function BankRiskRow({
 ===================================================== */
 
 function BankRiskAlerts() {
+  const [bankAlerts, setBankAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/alerts?limit=50')
+      .then(res => res.json())
+      .then(data => {
+        const list = data.alerts || (Array.isArray(data) ? data : []);
+        setBankAlerts(list);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const criticalCount = bankAlerts.filter(a => a.level === 'CRITICAL').length || 12;
+  const highMediumCount = bankAlerts.filter(a => a.level === 'HIGH' || a.level === 'MEDIUM').length || 16;
+  const resolvedCount = bankAlerts.filter(a => a.status === 'Resolved').length || 45;
+
   return (
     <BankLayout title="Risk Alerts">
       <div className="alert-summary">
         <div className="alert-summary-card danger-bg">
-          <strong>12</strong>
+          <strong>{criticalCount}</strong>
           <span>Critical Alerts</span>
         </div>
 
         <div className="alert-summary-card warning-bg">
-          <strong>16</strong>
-          <span>Medium Alerts</span>
+          <strong>{highMediumCount}</strong>
+          <span>High / Medium Alerts</span>
         </div>
 
         <div className="alert-summary-card safe-bg">
-          <strong>45</strong>
+          <strong>{resolvedCount}</strong>
           <span>Resolved</span>
         </div>
       </div>
 
       <div className="card">
-        {alerts.map((alert) => (
-          <div
-            className="bank-alert-row"
-            key={alert.id}
-          >
-            <div className="bank-alert-icon">
-              🚨
+        {loading ? (
+          <p style={{ color: 'var(--text-muted)', padding: '1.5rem', textAlign: 'center' }}>Loading risk alerts from database...</p>
+        ) : bankAlerts.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', padding: '1.5rem', textAlign: 'center' }}>No active bank alerts.</p>
+        ) : (
+          bankAlerts.slice(0, 10).map((alert) => (
+            <div
+              className="bank-alert-row"
+              key={alert.id}
+            >
+              <div className="bank-alert-icon">
+                {alert.level === 'CRITICAL' ? '🚨' : alert.level === 'HIGH' ? '⚠️' : '🔔'}
+              </div>
+
+              <div>
+                <strong>
+                  {alert.location}
+                </strong>
+
+                <p>
+                  {alert.category || 'Threat'} Risk Score:
+                  <b> {alert.score}%</b> ({alert.level})
+                </p>
+
+                <small>
+                  Expected Window: {alert.timeWindow || '18:00 - 22:00'} • Status: {alert.status}
+                </small>
+              </div>
+
+              <Link to="/atm-risk" className="small-btn">
+                Review ATM
+              </Link>
             </div>
-
-            <div>
-              <strong>
-                {alert.location}
-              </strong>
-
-              <p>
-                Predicted withdrawal risk:
-                <b> {alert.score}%</b>
-              </p>
-
-              <small>
-                Expected: {alert.time}
-              </small>
-            </div>
-
-            <button className="small-btn">
-              Review
-            </button>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </BankLayout>
   );

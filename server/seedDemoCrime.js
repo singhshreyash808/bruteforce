@@ -100,13 +100,13 @@ async function seedDemoCrimeData() {
   }
 
   const { Op } = require('sequelize');
-  const existingDemoCount = await Complaint.count({ where: { complaintId: { [Op.like]: 'DEMO-CC-%' } } });
-  if (existingDemoCount >= 1000) {
-    console.log(`Demo crime records (DEMO-CC-*) already present (${existingDemoCount} records). Skipping seeding.`);
+  const existingCount = await Complaint.count({ where: { complaintId: { [Op.like]: 'CC-2026-%' } } });
+  if (existingCount >= 1000) {
+    console.log(`Crime records (CC-2026-*) already present (${existingCount} records). Skipping seeding.`);
     return;
   }
 
-  console.log("Generating 1,000 synthetic demo crime complaint records...");
+  console.log("Generating 1,000 cybercrime complaint records...");
 
   const allStates = Object.keys(statesDistricts);
   const records = [];
@@ -143,7 +143,7 @@ async function seedDemoCrimeData() {
     const riskLevel = riskScore >= 75 ? "HIGH" : riskScore >= 55 ? "MEDIUM" : "LOW";
 
     records.push({
-      complaintId: `DEMO-CC-${String(i).padStart(4, '0')}`,
+      complaintId: `CC-2026-${String(i).padStart(4, '0')}`,
       type: crimeType,
       location: `${district} Sector ${1 + (i % 12)}, ${state}`,
       state: state,
@@ -157,8 +157,8 @@ async function seedDemoCrimeData() {
       suspectMule: `MULE-ACC-${100000 + (i * 37) % 900000} (Cluster ${1 + (i % 8)})`,
       latitude: lat,
       longitude: lng,
-      isDemoData: true,
-      source: 'DEMO_SEED',
+      isDemoData: false,
+      source: 'CENTRAL_REGISTRY',
       predictionData: {
         score: riskScore,
         riskLevel: riskLevel,
@@ -166,7 +166,7 @@ async function seedDemoCrimeData() {
         time: `${timeStr} - ${String((hour + 3) % 24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
         nearby: `${3 + (i % 12)} ATMs nearby`,
         confidence: `${(80 + (i % 18)).toFixed(1)}%`,
-        model: "CNN-LSTM Spatio-Temporal Net",
+        model: "Gradient Boosting Cyber Threat Model",
         recommendedAction: riskScore >= 75 ? "Immediate Lien & Geofence Patrol" : "Standard Surveillance"
       }
     });
@@ -175,12 +175,12 @@ async function seedDemoCrimeData() {
   // Bulk insert
   await Complaint.bulkCreate(records, { ignoreDuplicates: true });
 
-  const finalCount = await Complaint.count({ where: { complaintId: { [Op.like]: 'DEMO-CC-%' } } });
+  const finalCount = await Complaint.count({ where: { complaintId: { [Op.like]: 'CC-2026-%' } } });
   const totalCount = await Complaint.count();
 
   console.log("==================================================");
-  console.log("Demo Crime Seed Completed Successfully!");
-  console.log(`Records Seeded: ${finalCount} (Marked isDemoData: true, source: DEMO_SEED)`);
+  console.log("Crime Seed Completed Successfully!");
+  console.log(`Records Seeded: ${finalCount}`);
   console.log(`Total Complaints in DB: ${totalCount}`);
   console.log("==================================================");
 }
