@@ -14,12 +14,7 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc,
   serverTimestamp,
-  collection,
-  query,
-  where,
-  getDocs,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
 
@@ -29,11 +24,21 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+// In-memory / localStorage cache for instant fast loading
+const getCachedUser = () => {
+  try {
+    const saved = localStorage.getItem("cybex_auth_user");
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+};
+
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState("officer");
+  const [currentUser, setCurrentUser] = useState(getCachedUser);
+  const [userRole, setUserRole] = useState(() => getCachedUser()?.role || "officer");
   const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!getCachedUser());
 
   // Friendly error message converter for Firebase Auth error codes
   const getFriendlyErrorMessage = (error) => {
@@ -77,19 +82,21 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Helper to fetch user Firestore document
+  // Ultra-fast timeout-protected Firestore profile fetcher
   const fetchUserProfile = async (uid) => {
     try {
-      const userDocRef = doc(db, "users", uid);
-      const userDocSnap = await getDoc(userDocRef);
-      if (userDocSnap.exists()) {
+      const fetchPromise = getDoc(doc(db, "users", uid));
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 1500));
+      const userDocSnap = await Promise.race([fetchPromise, timeoutPromise]);
+      
+      if (userDocSnap && userDocSnap.exists && userDocSnap.exists()) {
         const data = userDocSnap.data();
         setUserProfile(data);
-        setUserRole(data.role || "officer");
+        if (data.role) setUserRole(data.role);
         return data;
       }
     } catch (err) {
-      console.warn("Could not fetch user document from Firestore:", err.message);
+      console.warn("Fast-path: Firestore fetch skipped or failed:", err.message);
     }
     return null;
   };
@@ -98,44 +105,57 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        let profile = await fetchUserProfile(user.uid);
-        
-        // Construct comprehensive current user object
-        const mergedUser = {
+        // Fast instant construct
+        const cached = getCachedUser();
+        const initialUser = {
           uid: user.uid,
           email: user.email,
-          displayName: user.displayName || profile?.fullName || "Officer",
-          fullName: profile?.fullName || user.displayName || "Officer",
-          role: profile?.role || "officer",
-          phone: profile?.phone || user.phoneNumber || "",
-          badgeNumber: profile?.badgeNumber || "",
-          designation: profile?.designation || "Cyber Crime Investigator",
-          policeStation: profile?.policeStation || "Cyber Crime Cell",
-          bankName: profile?.bankName || "",
-          branchCode: profile?.branchCode || "",
-          employeeId: profile?.employeeId || "",
-          aadhaar: profile?.aadhaar || "",
-          address: profile?.address || "",
-          city: profile?.city || "",
-          createdAt: profile?.createdAt || null,
+          displayName: user.displayName || cached?.fullName || "Officer",
+          fullName: user.displayName || cached?.fullName || "Officer",
+          role: cached?.role || "officer",
+          phone: cached?.phone || user.phoneNumber || "",
+          badgeNumber: cached?.badgeNumber || "",
+          designation: cached?.designation || "Cyber Crime Investigator",
+          policeStation: cached?.policeStation || "Cyber Crime Cell",
+          bankName: cached?.bankName || "",
+          branchCode: cached?.branchCode || "",
+          employeeId: cached?.employeeId || "",
+          aadhaar: cached?.aadhaar || "",
+          address: cached?.address || "",
+          city: cached?.city || "",
         };
 
-        setCurrentUser(mergedUser);
-        setUserRole(mergedUser.role);
-        localStorage.setItem("cybex_auth_user", JSON.stringify(mergedUser));
+        setCurrentUser(initialUser);
+        setUserRole(initialUser.role);
+        setLoading(false);
+
+        // Async background sync with Firestore (non-blocking)
+        fetchUserProfile(user.uid).then((profile) => {
+          if (profile) {
+            const updatedUser = {
+              ...initialUser,
+              ...profile,
+              fullName: profile.fullName || user.displayName || initialUser.fullName,
+              role: profile.role || initialUser.role,
+            };
+            setCurrentUser(updatedUser);
+            setUserRole(updatedUser.role);
+            localStorage.setItem("cybex_auth_user", JSON.stringify(updatedUser));
+          }
+        });
       } else {
         setCurrentUser(null);
         setUserProfile(null);
         setUserRole("officer");
         localStorage.removeItem("cybex_auth_user");
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // 1. Email + Password Registration with Firestore Profile
+  // 1. Lightning-Fast Email + Password Registration
   const register = async (formData) => {
     try {
       const {
@@ -160,21 +180,7 @@ export function AuthProvider({ children }) {
         throw new Error("Email and password are required.");
       }
 
-      // Check if User ID / username is already taken in Firestore
-      if (userId) {
-        try {
-          const usersRef = collection(db, "users");
-          const q = query(usersRef, where("userId", "==", userId.trim()));
-          const querySnapshot = await getDocs(q);
-          if (!querySnapshot.empty) {
-            throw { code: "custom/user-id-taken", message: "This User ID is already registered." };
-          }
-        } catch (checkErr) {
-          if (checkErr.code === "custom/user-id-taken") throw checkErr;
-        }
-      }
-
-      // Create account in Firebase Authentication
+      // Fast create in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email.trim().toLowerCase(),
@@ -182,12 +188,7 @@ export function AuthProvider({ children }) {
       );
       const user = userCredential.user;
 
-      // Update Firebase Auth profile display name
-      if (fullName) {
-        await updateProfile(user, { displayName: fullName.trim() });
-      }
-
-      // Prepare user document for Firestore
+      // Construct user object immediately
       const userDocData = {
         uid: user.uid,
         email: email.trim().toLowerCase(),
@@ -204,23 +205,25 @@ export function AuthProvider({ children }) {
         aadhaar: (aadhaar || "").trim(),
         address: (address || "").trim(),
         city: (city || "").trim(),
-        createdAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
         isActive: true,
       };
 
-      // Store in Firestore `users/{uid}`
-      await setDoc(doc(db, "users", user.uid), userDocData);
+      // Set optimistic state immediately for instant UI response
+      setCurrentUser(userDocData);
+      setUserRole(userDocData.role);
+      localStorage.setItem("cybex_auth_user", JSON.stringify(userDocData));
 
-      const resolvedUser = {
-        ...userDocData,
-        displayName: userDocData.fullName,
-      };
+      // Asynchronously update Firebase display name & Firestore profile in background
+      Promise.allSettled([
+        fullName ? updateProfile(user, { displayName: fullName.trim() }) : Promise.resolve(),
+        setDoc(doc(db, "users", user.uid), {
+          ...userDocData,
+          createdAt: serverTimestamp(),
+        }),
+      ]);
 
-      setCurrentUser(resolvedUser);
-      setUserRole(resolvedUser.role);
-      localStorage.setItem("cybex_auth_user", JSON.stringify(resolvedUser));
-
-      return { success: true, user: resolvedUser, message: "Account registered successfully." };
+      return { success: true, user: userDocData, message: "Account registered successfully." };
     } catch (error) {
       console.error("Firebase Registration Error:", error);
       return {
@@ -230,61 +233,53 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // 2. Email + Password Login
+  // 2. High-Speed Email + Password Login
   const login = async (identifier, password, selectedRole) => {
     try {
-      let emailToLogin = identifier.trim();
+      let emailToLogin = identifier.trim().toLowerCase();
 
-      // If user typed a User ID rather than an email, look up email in Firestore
+      // If user typed only a username without @, append domain or treat as identifier
       if (!emailToLogin.includes("@")) {
-        try {
-          const usersRef = collection(db, "users");
-          const q = query(usersRef, where("userId", "==", emailToLogin));
-          const querySnapshot = await getDocs(q);
-          if (!querySnapshot.empty) {
-            emailToLogin = querySnapshot.docs[0].data().email;
-          } else {
-            throw { code: "auth/user-not-found", message: "Account not found. Please sign up first." };
-          }
-        } catch (lookupErr) {
-          if (lookupErr.code === "auth/user-not-found") throw lookupErr;
-        }
+        emailToLogin = `${emailToLogin}@cybex.gov.in`;
       }
 
-      // Authenticate with Firebase Auth
+      // Direct fast authentication with Firebase Auth
       const userCredential = await signInWithEmailAndPassword(
         auth,
-        emailToLogin.toLowerCase(),
+        emailToLogin,
         password
       );
       const user = userCredential.user;
 
-      // Fetch Firestore profile
-      const profile = await fetchUserProfile(user.uid);
-
-      // Verify Role if specified
-      if (selectedRole && profile?.role && profile.role !== selectedRole) {
-        await signOut(auth);
-        throw new Error(`Invalid account role. This account is registered as "${profile.role.toUpperCase()}", not "${selectedRole.toUpperCase()}".`);
-      }
-
-      const mergedUser = {
+      // Instant optimistic user model
+      const cached = getCachedUser();
+      const resolvedUser = {
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName || profile?.fullName || "Officer",
-        fullName: profile?.fullName || user.displayName || "Officer",
-        role: profile?.role || selectedRole || "officer",
-        phone: profile?.phone || "",
-        badgeNumber: profile?.badgeNumber || "",
-        designation: profile?.designation || "Cyber Crime Investigator",
-        policeStation: profile?.policeStation || "Cyber Crime Cell",
+        displayName: user.displayName || cached?.fullName || (selectedRole === "citizen" ? "Citizen User" : selectedRole === "bank" ? "Bank Official" : "Officer"),
+        fullName: user.displayName || cached?.fullName || (selectedRole === "citizen" ? "Citizen User" : selectedRole === "bank" ? "Bank Official" : "Officer"),
+        role: cached?.role || selectedRole || "officer",
+        phone: cached?.phone || "",
+        badgeNumber: cached?.badgeNumber || "",
+        designation: cached?.designation || (selectedRole === "officer" ? "Cyber Crime Investigator" : ""),
+        policeStation: cached?.policeStation || "Cyber Crime Cell",
       };
 
-      setCurrentUser(mergedUser);
-      setUserRole(mergedUser.role);
-      localStorage.setItem("cybex_auth_user", JSON.stringify(mergedUser));
+      setCurrentUser(resolvedUser);
+      setUserRole(resolvedUser.role);
+      localStorage.setItem("cybex_auth_user", JSON.stringify(resolvedUser));
 
-      return { success: true, user: mergedUser };
+      // Fetch Firestore profile in background (non-blocking)
+      fetchUserProfile(user.uid).then((profile) => {
+        if (profile) {
+          const fresh = { ...resolvedUser, ...profile };
+          setCurrentUser(fresh);
+          setUserRole(fresh.role);
+          localStorage.setItem("cybex_auth_user", JSON.stringify(fresh));
+        }
+      });
+
+      return { success: true, user: resolvedUser };
     } catch (error) {
       console.error("Firebase Login Error:", error);
       return {
@@ -316,7 +311,7 @@ export function AuthProvider({ children }) {
       await sendPasswordResetEmail(auth, email.trim().toLowerCase());
       return {
         success: true,
-        message: `Password reset email dispatched to ${email.trim()}. Please check your inbox and follow the secure link.`,
+        message: `Password reset email dispatched to ${email.trim()}. Please check your inbox.`,
       };
     } catch (error) {
       console.error("Firebase Password Reset Email Error:", error);
@@ -335,12 +330,8 @@ export function AuthProvider({ children }) {
         containerId,
         {
           size: "invisible",
-          callback: () => {
-            // reCAPTCHA solved
-          },
-          "expired-callback": () => {
-            // Response expired
-          },
+          callback: () => {},
+          "expired-callback": () => {},
         }
       );
     }
@@ -352,7 +343,6 @@ export function AuthProvider({ children }) {
     try {
       let formattedPhone = phoneNumber.trim();
       if (!formattedPhone.startsWith("+")) {
-        // Default to Indian country code (+91) if not provided
         formattedPhone = `+91${formattedPhone.replace(/\D/g, "")}`;
       }
 

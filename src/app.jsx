@@ -357,7 +357,7 @@ function Register() {
       setShowSuccess(true);
       setTimeout(() => {
         navigate("/");
-      }, 2000);
+      }, 600);
     } else {
       setErrorMessage(result.error || "Registration failed. Please check your details.");
     }
