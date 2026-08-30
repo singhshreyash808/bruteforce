@@ -1,0 +1,236 @@
+/* =========================================================
+   CYBERINTEL - GLOBAL INDEX CSS
+   Vite + React
+   No Tailwind dependency
+========================================================= */
+
+/* ---------- Global Reset ---------- */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* ---------- Body ---------- */
+
+body {
+    margin: 0;
+
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Oxygen,
+        Ubuntu,
+        Cantarell,
+        "Fira Sans",
+        "Droid Sans",
+        "Helvetica Neue",
+        Arial,
+        sans-serif;
+
+    background: #07111f;
+    color: #edf7ff;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    overflow-x: hidden;
+}
+
+/* ---------- Code ---------- */
+
+code,
+pre,
+kbd,
+samp {
+    font-family:
+        "JetBrains Mono",
+        "Fira Code",
+        source-code-pro,
+        Menlo,
+        Monaco,
+        Consolas,
+        "Courier New",
+        monospace;
+}
+
+/* ---------- Form Elements ---------- */
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+input,
+select,
+textarea {
+    outline: none;
+}
+
+/* ---------- Links ---------- */
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* ---------- Images ---------- */
+
+img,
+svg {
+    max-width: 100%;
+}
+
+/* ---------- Text Selection ---------- */
+
+::selection {
+    background: rgba(57, 215, 255, 0.25);
+    color: #ffffff;
+}
+
+/* =========================================================
+   LIGHT THEME
+========================================================= */
+
+.light,
+[data-theme="light"] {
+    color-scheme: light;
+}
+
+.light body,
+[data-theme="light"] body {
+    background: #f4f8fc;
+    color: #142235;
+}
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #26384d;
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #39526d;
+}
+
+/* Firefox */
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #26384d transparent;
+}
+
+/* =========================================================
+   DEBUG WRAPPER
+========================================================= */
+
+[data-debug-wrapper="true"] {
+    display: contents !important;
+}
+
+[data-debug-wrapper="true"] > * {
+    margin-left: inherit;
+    margin-right: inherit;
+    margin-top: inherit;
+    margin-bottom: inherit;
+
+    padding-left: inherit;
+    padding-right: inherit;
+    padding-top: inherit;
+    padding-bottom: inherit;
+
+    column-gap: inherit;
+    row-gap: inherit;
+    gap: inherit;
+
+    border-left-width: inherit;
+    border-right-width: inherit;
+    border-top-width: inherit;
+    border-bottom-width: inherit;
+
+    border-left-style: inherit;
+    border-right-style: inherit;
+    border-top-style: inherit;
+    border-bottom-style: inherit;
+
+    border-left-color: inherit;
+    border-right-color: inherit;
+    border-top-color: inherit;
+    border-bottom-color: inherit;
+}
+
+/* =========================================================
+   ACCESSIBILITY
+========================================================= */
+
+:focus-visible {
+    outline: 2px solid rgba(57, 215, 255, 0.65);
+    outline-offset: 2px;
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 768px) {
+    html,
+    body {
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    body {
+        font-size: 14px;
+    }
+}
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
