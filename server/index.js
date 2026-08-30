@@ -33,19 +33,29 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api', dispatchRoutes);
 
-// Serve static files from the uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Setup uploads folder with absolute path
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
-// Configure Multer for local storage
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(uploadsDir));
+
+// Configure Multer for absolute local storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
+    const sanitized = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${Date.now()}-${sanitized}`);
   }
 });
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+});
 
 // Sync database without forcing (so data is preserved)
 sequelize.sync().then(async () => {
@@ -723,10 +733,33 @@ app.put('/api/tasks/:id', async (req, res) => {
 
 // --- DOCUMENTS API ENDPOINTS ---
 
-// GET all documents
+// GET all documents with optional filters
 app.get('/api/documents', async (req, res) => {
   try {
-    const docs = await Document.findAll({ order: [['createdAt', 'DESC']] });
+    const { search, docType, linkedCaseId } = req.query;
+    const whereClause = {};
+
+    if (search && search.trim()) {
+      const q = `%${search.trim()}%`;
+      whereClause[Op.or] = [
+        { originalName: { [Op.like]: q } },
+        { uploadedBy: { [Op.like]: q } },
+        { linkedCaseId: { [Op.like]: q } }
+      ];
+    }
+
+    if (docType && docType !== 'All') {
+      whereClause.mimetype = { [Op.like]: `%${docType}%` };
+    }
+
+    if (linkedCaseId) {
+      whereClause.linkedCaseId = linkedCaseId;
+    }
+
+    const docs = await Document.findAll({
+      where: whereClause,
+      order: [['createdAt', 'DESC']]
+    });
     res.json(docs);
   } catch (error) {
     console.error("Error fetching documents:", error);
@@ -750,10 +783,36 @@ app.post('/api/documents', upload.single('file'), async (req, res) => {
       linkedCaseId: req.body.linkedCaseId || null
     });
     
-    res.json(newDoc);
+    res.status(201).json(newDoc);
   } catch (error) {
     console.error("Error uploading document:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "Failed to upload document: " + error.message });
+  }
+});
+
+// DELETE a document
+app.delete('/api/documents/:id', async (req, res) => {
+  try {
+    const doc = await Document.findByPk(req.params.id);
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    // Try to remove physical file from disk
+    const filePath = path.join(uploadsDir, doc.filename);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) {
+        console.warn("Could not delete physical file:", e.message);
+      }
+    }
+
+    await doc.destroy();
+    res.json({ success: true, message: "Document deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting document:", error);
+    res.status(500).json({ error: "Failed to delete document" });
   }
 });
 

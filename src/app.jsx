@@ -12,7 +12,6 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import "./app.css";
-import Tasks from "./pages/Tasks";
 import Documents from "./pages/Documents";
 import statesData from "./states-and-districts.json";
 import statesDistrictsMap from "./statesDistricts.json";
@@ -1192,19 +1191,14 @@ function OfficerSidebar() {
       name: "Reports",
     },
     {
-      path: "/settings",
-      icon: "⚙️",
-      name: "Settings",
-    },
-    {
-      path: "/tasks",
-      icon: "📋",
-      name: "Tasks",
-    },
-    {
       path: "/documents",
       icon: "📂",
       name: "Documents",
+    },
+    {
+      path: "/settings",
+      icon: "⚙️",
+      name: "Settings",
     },
   ];
 
@@ -9039,17 +9033,6 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["officer", "admin"]}>
             <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/tasks"
-        element={
-          <ProtectedRoute allowedRoles={["officer", "admin"]}>
-            <Layout title="Workflow Tasks">
-              <Tasks />
-            </Layout>
           </ProtectedRoute>
         }
       />
