@@ -6,6 +6,7 @@ import {
   Link,
   useNavigate,
   useLocation,
+  useSearchParams,
 } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -2066,8 +2067,12 @@ function Complaints() {
   const [filterState, setFilterState] = useState("All States");
   const [filterDistrict, setFilterDistrict] = useState("All Districts");
   const [filterStatus, setFilterStatus] = useState("All Status");
-  const [apiCases, setApiCases] = useState(complaints); // fallback to demo data initially
+  const [apiCases, setApiCases] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(50);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [showNewModal, setShowNewModal] = useState(false);
 
   // New Complaint Form State
@@ -2078,13 +2083,31 @@ function Complaints() {
     amount: "₹",
   });
 
-  const fetchCases = () => {
-    fetch('http://localhost:3001/api/cases')
+  const fetchCases = (currentPage = page) => {
+    setLoading(true);
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      limit: String(limit),
+      search: search.trim(),
+      type: filterType,
+      state: filterState,
+      district: filterDistrict,
+      status: filterStatus
+    });
+
+    fetch(`http://localhost:3001/api/cases?${params.toString()}`)
       .then(res => res.json())
       .then(data => {
-        if(data && data.length > 0) {
-          const mappedData = data.map(d => ({...d, id: d.complaintId || d.id}));
+        if (data && data.data && Array.isArray(data.data)) {
+          const mappedData = data.data.map(d => ({ ...d, id: d.complaintId || d.id }));
           setApiCases(mappedData);
+          setTotalCount(data.pagination ? data.pagination.total : mappedData.length);
+          setTotalPages(data.pagination ? data.pagination.totalPages : 1);
+        } else if (Array.isArray(data)) {
+          const mappedData = data.map(d => ({ ...d, id: d.complaintId || d.id }));
+          setApiCases(mappedData);
+          setTotalCount(mappedData.length);
+          setTotalPages(1);
         }
       })
       .catch(console.error)
@@ -2092,28 +2115,24 @@ function Complaints() {
   };
 
   useEffect(() => {
-    fetchCases();
-  }, []);
+    fetchCases(page);
+  }, [page, limit, filterType, filterState, filterDistrict, filterStatus]);
 
-  const filtered = apiCases.filter((item) => {
-    const matchesSearch =
-      item.id.toLowerCase().includes(search.toLowerCase()) ||
-      item.type.toLowerCase().includes(search.toLowerCase()) ||
-      (item.location && item.location.toLowerCase().includes(search.toLowerCase()));
-
-    const matchesType = filterType === "All Crime Types" || item.type.includes(filterType.split(" ")[0]);
-    const matchesState = filterState === "All States" || item.state === filterState;
-    const matchesDistrict = filterDistrict === "All Districts" || item.district === filterDistrict;
-    const matchesStatus = filterStatus === "All Status" || item.status === filterStatus;
-
-    return matchesSearch && matchesType && matchesState && matchesDistrict && matchesStatus;
-  });
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchCases(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const handleAddNewComplaint = async () => {
     const newId = `COMP-${Math.floor(10000 + Math.random() * 90000)}`;
     const today = new Date().toISOString().split("T")[0];
     const newCase = {
       id: newId,
+      complaintId: newId,
       type: newComplaint.type,
       location: `Unknown Street, ${newComplaint.district}, ${newComplaint.state}`,
       state: newComplaint.state,
@@ -2130,9 +2149,9 @@ function Complaints() {
         body: JSON.stringify(newCase)
       });
       if (res.ok) {
-        // Refresh cases from backend
-        fetchCases();
         setShowNewModal(false);
+        setPage(1);
+        fetchCases(1);
         setNewComplaint({ 
           type: "UPI Fraud", 
           state: statesData.states[0].state, 
@@ -2148,12 +2167,17 @@ function Complaints() {
     }
   };
 
+  const startRecord = totalCount > 0 ? (page - 1) * limit + 1 : 0;
+  const endRecord = totalCount > 0 ? Math.min(page * limit, totalCount) : 0;
+
   return (
     <Layout title="Complaint Analysis">
       <div className="page-toolbar">
         <div>
           <h2>Cybercrime Complaints</h2>
-          <p>Analyze complaints and identify patterns</p>
+          <p>
+            Central database registry — <strong>{totalCount > 0 ? totalCount.toLocaleString('en-IN') : '...'}</strong> total verified complaints
+          </p>
         </div>
 
         <button className="primary-btn" onClick={() => setShowNewModal(true)}>
@@ -2163,22 +2187,26 @@ function Complaints() {
 
       <div className="filter-card">
         <input
-          placeholder="🔍 Search complaint..."
+          placeholder="🔍 Search complaint ID, location, or type..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+        <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1); }}>
           <option>All Crime Types</option>
           <option>UPI Fraud</option>
           <option>Phishing</option>
           <option>ATM Fraud</option>
           <option>Financial Fraud</option>
+          <option>Identity Theft</option>
+          <option>Investment Scam</option>
+          <option>Loan App Harassment</option>
         </select>
 
         <select value={filterState} onChange={(e) => {
           setFilterState(e.target.value);
-          setFilterDistrict("All Districts"); // reset district when state changes
+          setFilterDistrict("All Districts");
+          setPage(1);
         }}>
           <option>All States</option>
           {statesData.states.map(s => <option key={s.state} value={s.state}>{s.state}</option>)}
@@ -2186,7 +2214,7 @@ function Complaints() {
 
         <select 
           value={filterDistrict} 
-          onChange={(e) => setFilterDistrict(e.target.value)}
+          onChange={(e) => { setFilterDistrict(e.target.value); setPage(1); }}
           disabled={filterState === "All States"}
         >
           <option>All Districts</option>
@@ -2197,15 +2225,69 @@ function Complaints() {
           }
         </select>
 
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+        <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}>
           <option>All Status</option>
-          <option>Analyzed</option>
           <option>Pending</option>
+          <option>Analyzed</option>
+          <option>Under Investigation</option>
+          <option>Resolved</option>
+          <option>Closed</option>
         </select>
       </div>
 
       <div className="card">
-        <ComplaintTable data={filtered} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+            Showing <strong>{startRecord.toLocaleString('en-IN')}–{endRecord.toLocaleString('en-IN')}</strong> of <strong>{totalCount.toLocaleString('en-IN')}</strong> records
+          </span>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Rows:</span>
+            <select 
+              value={limit} 
+              onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}
+              style={{ padding: '4px 8px', fontSize: '12px', borderRadius: '6px' }}
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
+
+        {loading ? (
+          <p style={{ color: 'var(--text-muted)', padding: '2rem', textAlign: 'center' }}>Loading complaints from centralized database...</p>
+        ) : apiCases.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', padding: '2rem', textAlign: 'center' }}>No complaints matched your search filter.</p>
+        ) : (
+          <ComplaintTable data={apiCases} />
+        )}
+
+        {/* Server-Side Pagination Controls */}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '18px', paddingTop: '14px', borderTop: '1px solid var(--line)', flexWrap: 'wrap', gap: '10px' }}>
+            <button
+              className="secondary-btn"
+              disabled={page <= 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              style={{ opacity: page <= 1 ? 0.5 : 1, cursor: page <= 1 ? 'not-allowed' : 'pointer' }}
+            >
+              ◀ Previous
+            </button>
+
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+              Page <strong>{page}</strong> of <strong>{totalPages.toLocaleString('en-IN')}</strong>
+            </span>
+
+            <button
+              className="secondary-btn"
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              style={{ opacity: page >= totalPages ? 0.5 : 1, cursor: page >= totalPages ? 'not-allowed' : 'pointer' }}
+            >
+              Next ▶
+            </button>
+          </div>
+        )}
       </div>
 
       {showNewModal && createPortal(
@@ -2328,8 +2410,10 @@ function ComplaintTable({ data }) {
               <td>
                 <span
                   className={
-                    item.status === "Analyzed"
+                    item.status === "Analyzed" || item.status === "Resolved"
                       ? "badge success"
+                      : item.status === "Under Investigation"
+                      ? "badge warning"
                       : "badge pending"
                   }
                 >
@@ -2341,7 +2425,7 @@ function ComplaintTable({ data }) {
                 <button
                   className="small-btn"
                   onClick={() =>
-                    navigate("/prediction")
+                    navigate(`/prediction?complaintId=${encodeURIComponent(item.id)}`)
                   }
                 >
                   Analyze
@@ -2365,10 +2449,12 @@ function ComplaintTable({ data }) {
 
 function Prediction() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const qComplaintId = searchParams.get('complaintId');
 
   const [mode, setMode] = useState("complaint"); // "complaint" | "sandbox"
-  const [selectedComplaintId, setSelectedComplaintId] = useState("");
-  const [selectedModel, setSelectedModel] = useState("CNN-LSTM");
+  const [selectedComplaintId, setSelectedComplaintId] = useState(qComplaintId || "");
+  const [selectedModel, setSelectedModel] = useState("Gradient-Boosting");
   const [spatialWeight, setSpatialWeight] = useState(0.85);
   const [temporalWeight, setTemporalWeight] = useState(0.75);
   const [dbComplaints, setDbComplaints] = useState([]);
@@ -2379,18 +2465,34 @@ function Prediction() {
     setDbComplaintsLoading(true);
     fetch('http://localhost:3001/api/cases?limit=100')
       .then(res => res.json())
-      .then(data => {
-        const list = Array.isArray(data) ? data : [];
+      .then(async data => {
+        const list = data.data && Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
         const mapped = list.map(d => ({ ...d, id: d.complaintId || d.id }));
+        
+        // If specific complaintId in query param but not in list, fetch it directly
+        if (qComplaintId && !mapped.some(c => c.id === qComplaintId)) {
+          try {
+            const singleRes = await fetch(`http://localhost:3001/api/cases/${encodeURIComponent(qComplaintId)}`);
+            if (singleRes.ok) {
+              const singleCase = await singleRes.json();
+              mapped.unshift({ ...singleCase, id: singleCase.complaintId || singleCase.id });
+            }
+          } catch (e) {
+            console.warn("Could not fetch query complaint:", e);
+          }
+        }
+
         setDbComplaints(mapped);
-        if (mapped.length > 0 && !selectedComplaintId) {
-          setSelectedComplaintId(mapped[0].id);
-          setPrediction(mapped[0].predictionData || null);
+        const activeId = qComplaintId && mapped.some(c => c.id === qComplaintId) ? qComplaintId : (mapped[0]?.id || "");
+        setSelectedComplaintId(activeId);
+        const initialFound = mapped.find(c => c.id === activeId);
+        if (initialFound && initialFound.predictionData) {
+          setPrediction(initialFound.predictionData);
         }
         setDbComplaintsLoading(false);
       })
       .catch(err => { console.error(err); setDbComplaintsLoading(false); });
-  }, []);
+  }, [qComplaintId]);
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
@@ -2441,7 +2543,17 @@ function Prediction() {
     setTimeout(() => setAnalysisStep(3), 500);
     
     try {
-      const payload = mode === "complaint" ? currentComplaint : sandboxForm;
+      const payload = mode === "complaint" 
+        ? {
+            ...currentComplaint,
+            complaintId: currentComplaint.id || selectedComplaintId,
+            crimeType: currentComplaint.type,
+            amount: currentComplaint.amount,
+            state: currentComplaint.state,
+            district: currentComplaint.district || currentComplaint.city
+          }
+        : sandboxForm;
+
       const response = await fetch("http://localhost:3001/api/analyze-case", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2452,25 +2564,33 @@ function Prediction() {
       setAnalysisStep(4);
       
       if (mode === "complaint") {
-        setPrediction({
-          ...currentComplaint.predictionData,
-          score: mlData.score || 85,
-          riskLevel: mlData.riskLevel || "HIGH",
-          confidence: mlData.confidence || "90.0%",
-          recommendedAction: mlData.recommendedAction || "Monitor account",
-          model: mlData.model || "Python ML Service"
-        });
+        const enriched = {
+          ...(currentComplaint.predictionData || {}),
+          ...mlData,
+          complaintId: currentComplaint.id,
+          location: currentComplaint.location || mlData.location,
+          time: currentComplaint.time || "18:00 - 21:00",
+          velocity: currentComplaint.type?.includes("UPI") ? "Rapid 5-Burst Micro-Transfers" : "High-Frequency ATM Cashout",
+          nearby: "12 Node Perimeter",
+          atms: [
+            { id: `ATM-${currentComplaint.id}-1`, name: `SBI Main Branch Kiosk (${currentComplaint.district || 'City'})`, dist: '0.4 km', threat: `${mlData.score || 85}%`, cctv: '94% Online' },
+            { id: `ATM-${currentComplaint.id}-2`, name: `HDFC Express Dispenser (${currentComplaint.district || 'Hub'})`, dist: '0.8 km', threat: `${Math.max(40, (mlData.score || 85) - 10)}%`, cctv: '88% Online' }
+          ]
+        };
+        setPrediction(enriched);
       } else {
         setPrediction({
           score: mlData.score || 75,
           riskLevel: mlData.riskLevel || "MEDIUM",
           location: sandboxForm.location,
-          coordinates: [19.0760, 72.8777],
+          coordinates: mlData.coordinates || [19.0760, 72.8777],
+          latitude: mlData.latitude || 19.0760,
+          longitude: mlData.longitude || 72.8777,
           time: sandboxForm.time,
           nearby: "Python ML Output",
           velocity: sandboxForm.velocity,
           confidence: mlData.confidence || "85.0%",
-          model: mlData.model || "Python Sandbox Model",
+          model: mlData.model || "Gradient Boosting Threat Classifier",
           recommendedAction: mlData.recommendedAction || "Monitor closely.",
           atms: []
         });
@@ -2493,23 +2613,33 @@ function Prediction() {
 
   function handleDispatchSectorPatrol() {
     showToast(
-      `🚨 Sector Quick-Response Unit alerted for ${prediction.location}. Live tracking geofence active.`
+      `🚨 Sector Quick-Response Unit alerted for ${prediction?.location || currentComplaint.location}. Live tracking geofence active.`
     );
   }
 
   function handleFreezeNotice() {
     alert(
-      `[EMERGENCY 102 CrPC MANDATE ISSUED]\n\nNotice transmitted to Nodal Banking Desks for immediate debit hold on suspect beneficiary accounts linked to ${prediction.location}.\nSupervising Officer: LEA-10245`
+      `[EMERGENCY 102 CrPC MANDATE ISSUED]\n\nNotice transmitted to Nodal Banking Desks for immediate debit hold on suspect beneficiary accounts linked to ${prediction?.location || currentComplaint.location}.\nSupervising Officer: LEA-10245`
     );
     showToast("🔒 Urgent Inter-Bank Freeze Order broadcasted to Bank Nodal Officers.");
   }
 
   function handleExportDossier() {
     alert(
-      `[TACTICAL INTELLIGENCE DOSSIER READY]\n\nTarget Location: ${prediction.location}\nRisk Score: ${prediction.score}%\nExtraction Window: ${prediction.time}\nFormat: Encrypted Law Enforcement PDF Dossier\nClassification: RESTRICTED - LEA PATROL USE`
+      `[TACTICAL INTELLIGENCE DOSSIER READY]\n\nTarget Location: ${prediction?.location || currentComplaint.location}\nRisk Score: ${prediction?.score || 85}%\nExtraction Window: ${prediction?.time || '18:00 - 21:00'}\nFormat: Encrypted Law Enforcement PDF Dossier\nClassification: RESTRICTED - LEA PATROL USE`
     );
     showToast("📥 Tactical Intelligence Dossier exported to encrypted PDF.");
   }
+
+  // Dynamic deep link to Heatmap with target coordinates & complaint details
+  const targetCoords = prediction?.coordinates || [prediction?.latitude || currentComplaint.latitude || 19.0760, prediction?.longitude || currentComplaint.longitude || 72.8777];
+  const targetLat = targetCoords[0] || 19.0760;
+  const targetLng = targetCoords[1] || 72.8777;
+  const targetLoc = prediction?.location || currentComplaint.location || 'Target Area';
+  const targetScore = prediction?.score || currentComplaint?.predictionData?.score || 85;
+  const targetLevel = prediction?.riskLevel || currentComplaint?.predictionData?.riskLevel || 'HIGH';
+  const targetId = prediction?.complaintId || selectedComplaintId || 'TARGET';
+  const mapDeepLink = `/heatmap?lat=${targetLat}&lng=${targetLng}&zoom=13&complaintId=${encodeURIComponent(targetId)}&location=${encodeURIComponent(targetLoc)}&riskLevel=${encodeURIComponent(targetLevel)}&score=${targetScore}&state=${encodeURIComponent(currentComplaint.state || '')}&district=${encodeURIComponent(currentComplaint.district || '')}`;
 
   return (
     <Layout title="Predictive Withdrawal Intelligence">
@@ -2525,7 +2655,7 @@ function Prediction() {
           <button
             type="button"
             className="secondary-btn"
-            onClick={() => navigate("/heatmap")}
+            onClick={() => navigate(mapDeepLink)}
           >
             🗺️ Live GIS Radar Map
           </button>
@@ -3111,7 +3241,7 @@ function Prediction() {
                   🔒 Issue Urgent Freeze Mandate
                 </button>
 
-                <Link to="/heatmap" className="primary-btn">
+                <Link to={mapDeepLink} className="primary-btn">
                   🗺️ View on Live GIS Map →
                 </Link>
               </div>
@@ -3734,12 +3864,30 @@ function GISMap({
 }
 
 function Heatmap() {
-  const [selectedState, setSelectedState] = useState("Maharashtra");
-  const [selectedDistrict, setSelectedDistrict] = useState("");
-  const initialStateGeo = getStateGeo("Maharashtra");
-  const [mapCenter, setMapCenter] = useState([initialStateGeo?.lat ?? 19.7515, initialStateGeo?.lng ?? 75.7139]);
-  const [mapZoom, setMapZoom] = useState(initialStateGeo?.zoom ?? 7);
-  const [mapBounds, setMapBounds] = useState(initialStateGeo?.bounds ?? null);
+  const [searchParams] = useSearchParams();
+  const paramLat = searchParams.get("lat");
+  const paramLng = searchParams.get("lng");
+  const paramZoom = searchParams.get("zoom");
+  const paramComplaintId = searchParams.get("complaintId");
+  const paramLocation = searchParams.get("location");
+  const paramRiskLevel = searchParams.get("riskLevel");
+  const paramScore = searchParams.get("score");
+  const paramState = searchParams.get("state");
+  const paramDistrict = searchParams.get("district");
+
+  const [selectedState, setSelectedState] = useState(paramState || "Maharashtra");
+  const [selectedDistrict, setSelectedDistrict] = useState(paramDistrict || "");
+  const initialStateGeo = getStateGeo(paramState || "Maharashtra");
+  
+  const [mapCenter, setMapCenter] = useState(
+    paramLat && paramLng
+      ? [parseFloat(paramLat), parseFloat(paramLng)]
+      : [initialStateGeo?.lat ?? 19.7515, initialStateGeo?.lng ?? 75.7139]
+  );
+  const [mapZoom, setMapZoom] = useState(
+    paramZoom ? parseInt(paramZoom, 10) : (paramLat && paramLng ? 13 : (initialStateGeo?.zoom ?? 7))
+  );
+  const [mapBounds, setMapBounds] = useState(paramLat && paramLng ? null : (initialStateGeo?.bounds ?? null));
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedTimeframe, setSelectedTimeframe] = useState("Today");
 
@@ -3751,6 +3899,41 @@ function Heatmap() {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [loadingHotspots, setLoadingHotspots] = useState(false);
 
+  // Handle URL query parameters for deep linking from Prediction / Complaint
+  useEffect(() => {
+    if (paramLat && paramLng) {
+      const latVal = parseFloat(paramLat);
+      const lngVal = parseFloat(paramLng);
+      setMapCenter([latVal, lngVal]);
+      setMapZoom(paramZoom ? parseInt(paramZoom, 10) : 13);
+      setMapBounds(null);
+      if (paramState) setSelectedState(paramState);
+      if (paramDistrict) setSelectedDistrict(paramDistrict);
+
+      const targetPoint = {
+        id: paramComplaintId || "target-incident",
+        name: paramLocation || `${paramDistrict || paramState || "Incident"} Target Corridor`,
+        state: paramState || selectedState,
+        district: paramDistrict || "",
+        level: paramRiskLevel || "HIGH",
+        score: paramScore ? parseInt(paramScore, 10) : 85,
+        coordinates: [latVal, lngVal],
+        complaints: 1,
+        category: "Predicted Withdrawal Threat",
+        timeWindow: "18:00 - 21:00",
+        withdrawals: 45,
+        nearbyAtms: 15,
+        cctvCoverage: "88%",
+        radius: 1200,
+        highRiskAtms: [
+          { id: "ATM-DEEP-1", name: `SBI Sector Hub (${paramDistrict || 'Zone'})`, coords: [latVal + 0.005, lngVal + 0.005], risk: "88% Threat" },
+          { id: "ATM-DEEP-2", name: `HDFC Express (${paramDistrict || 'Main'})`, coords: [latVal - 0.005, lngVal - 0.005], risk: "76% Threat" }
+        ]
+      };
+      setSelectedLocation(targetPoint);
+    }
+  }, [paramLat, paramLng, paramZoom, paramComplaintId, paramLocation, paramRiskLevel, paramScore, paramState, paramDistrict]);
+
   // Fetch hotspots from Python ML Backend via Node API
   useEffect(() => {
     async function fetchMLHotspots() {
@@ -3759,10 +3942,42 @@ function Heatmap() {
         const res = await fetch(`http://localhost:3001/api/hotspots/predict?state=${encodeURIComponent(selectedState)}&category=${encodeURIComponent(selectedCategory)}`);
         if(res.ok) {
           const data = await res.json();
-          setHotspots(data.hotspots || []);
+          let fetchedHotspots = data.hotspots || [];
+
+          // If a deep-linked location exists for this state, ensure it is prepended
+          if (paramLat && paramLng) {
+            const latVal = parseFloat(paramLat);
+            const lngVal = parseFloat(paramLng);
+            const exists = fetchedHotspots.some(h => Math.abs(h.coordinates[0] - latVal) < 0.01 && Math.abs(h.coordinates[1] - lngVal) < 0.01);
+            if (!exists) {
+              const deepSpot = {
+                id: paramComplaintId || "target-incident",
+                name: paramLocation || `${paramDistrict || "Active"} Incident Corridor`,
+                state: paramState || selectedState,
+                district: paramDistrict || "",
+                level: paramRiskLevel || "HIGH",
+                score: paramScore ? parseInt(paramScore, 10) : 85,
+                coordinates: [latVal, lngVal],
+                complaints: 1,
+                category: "Predicted Withdrawal Threat",
+                timeWindow: "18:00 - 21:00",
+                withdrawals: 45,
+                nearbyAtms: 15,
+                cctvCoverage: "88%",
+                radius: 1200,
+                highRiskAtms: [
+                  { id: "ATM-DEEP-1", name: `SBI Sector Hub (${paramDistrict || 'Zone'})`, coords: [latVal + 0.005, lngVal + 0.005], risk: "88% Threat" },
+                  { id: "ATM-DEEP-2", name: `HDFC Express (${paramDistrict || 'Main'})`, coords: [latVal - 0.005, lngVal - 0.005], risk: "76% Threat" }
+                ]
+              };
+              fetchedHotspots = [deepSpot, ...fetchedHotspots];
+            }
+          }
+
+          setHotspots(fetchedHotspots);
           
-          if(!selectedDistrict && data.hotspots && data.hotspots.length > 0) {
-            setSelectedLocation(data.hotspots[0]);
+          if (!selectedLocation && fetchedHotspots.length > 0) {
+            setSelectedLocation(fetchedHotspots[0]);
           }
         }
       } catch(err) {
