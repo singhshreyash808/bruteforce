@@ -23,6 +23,7 @@ const { seedDefaultUsers } = require('./seedUsers');
 const { seedPatrolUnits } = require('./seedPatrolUnits');
 const authRoutes = require('./routes/auth');
 const dispatchRoutes = require('./routes/dispatchRoutes');
+const analyticsRoutes = require('./routes/analytics');
 const multer = require('multer');
 
 const app = express();
@@ -31,6 +32,7 @@ app.use(express.json());
 
 // Mount routers
 app.use('/api/auth', authRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/api', dispatchRoutes);
 
 // Setup uploads folder with absolute path
