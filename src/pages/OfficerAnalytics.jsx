@@ -42,6 +42,7 @@ export function OfficerAnalytics() {
   const [selectedCrimeType, setSelectedCrimeType] = useState("ALL");
   const [selectedRiskLevel, setSelectedRiskLevel] = useState("ALL");
   const [selectedBank, setSelectedBank] = useState("ALL");
+  const [dateRange, setDateRange] = useState("30D"); // 7D, 30D, 3M, ALL
   const [trendGranularity, setTrendGranularity] = useState("30d"); // 30d, 14d, 7d
   const [hoveredTrendPoint, setHoveredTrendPoint] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
